@@ -41,15 +41,13 @@ NeoPixelBuffer::NeoPixelBuffer(uint32_t dmaChannel, uint32_t irq, PIO pio, uint3
     else
         ::_dma1Buffer = this;
 
-    _frontBuffer = new neopixel[_pixelCount];
-    _backBuffer = new neopixel[_pixelCount];
-    ::memset(_frontBuffer, 0, sizeof(neopixel) * sizeof(_pixelCount));
-    ::memset(_backBuffer, 0, sizeof(neopixel) * sizeof(_pixelCount));
+    _frontBuffer = new neopixel[_pixelCount]();
+    _backBuffer = new neopixel[_pixelCount]();
 
     _programOffset = pio_add_program(_pio, &neopixel_program);    
     neopixel_program_init(_pio, _stateMachine, _programOffset, pixelPin, false);
 
-    sem_init(&_swapReady, 10, 10);
+    sem_init(&_swapReady, 1, 1);
 
     // Set up the DMA channel to pipe the bit data to the PIO program
     dma_claim_mask(_dmaMask);
