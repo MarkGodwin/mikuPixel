@@ -5,16 +5,12 @@ cmake_minimum_required(VERSION 3.13)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 17)
 
-# Initialise pico_sdk from installed location
-# (note this can come from environment, CMake cache etc)
-#set(PICO_SDK_PATH "/home/mark/repos/pico-sdk")
-
+# Initialise pico_sdk from the submodule
 include(../pico-sdk/pico_sdk_init.cmake)
 
 set(PICO_BOARD pico_w CACHE STRING "Board type")
 
 # Pull in Raspberry Pi Pico SDK (must be before project)
-#include(pico_sdk_import.cmake)
 
 if (PICO_SDK_VERSION_STRING VERSION_LESS "1.4.0")
   message(FATAL_ERROR "Raspberry Pi Pico SDK version 1.4.0 (or later) required. Your version is ${PICO_SDK_VERSION_STRING}")
@@ -27,7 +23,7 @@ pico_sdk_init()
 
 # Add executable. Default name is the project name, version 0.1
 
-add_executable(mark_neopixel mark_neopixel.cpp NeoPixelBuffer.cpp)
+add_executable(mark_neopixel mark_neopixel.cpp NeoPixelBuffer.cpp Miku.cpp)
 
 pico_set_program_name(mark_neopixel "mark_neopixel")
 pico_set_program_version(mark_neopixel "0.1")
@@ -40,6 +36,7 @@ pico_generate_pio_header(mark_neopixel ${CMAKE_CURRENT_LIST_DIR}/neopixel.pio)
 # Add the standard library to the build
 target_link_libraries(
   mark_neopixel
+  
   pico_stdlib
   hardware_pio
   hardware_dma)
