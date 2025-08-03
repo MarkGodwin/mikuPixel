@@ -13,7 +13,8 @@
 	// "forwardPorts": [],
 
 	// Use 'postCreateCommand' to run commands after the container is created.
-	"postCreateCommand": "git submodule update --init --recursive",
+	"postCreateCommand": 
+		"git submodule update --init --recursive",
 	"customizations": {
 		"vscode": {
 			"extensions": [

@@ -1,6 +1,6 @@
 #pragma once
 #include <cstdint>
-
+#include <type_traits>
 
 const uint8_t gammaLut[256] = {
      0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   1,
@@ -47,7 +47,7 @@ union neopixel
             gammaLut[red],
             gammaLut[green],
             gammaLut[blue],
-            gammaLut[white] // optionally gamma correct white channel too
+            gammaLut[white]
         };
     }
 
@@ -56,3 +56,6 @@ union neopixel
         return neopixel(red * value / 255, green * value / 255, blue * value / 255, white * value / 255);
     }
 };
+
+static_assert(std::is_trivially_copyable<neopixel>::value, "neopixel should be trivially copyable");
+

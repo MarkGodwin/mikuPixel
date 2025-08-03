@@ -2,9 +2,11 @@
 
 #include "pico/stdlib.h"
 #include "pico/sem.h"
+#include <string.h>
 #include "hardware/dma.h"
 #include "hardware/pio.h"
 #include <array>
+#include <vector>
 #include <cmath>
 #include "NeoPixel.h"
 
@@ -12,9 +14,10 @@
 class NeoPixelFrame
 {
     public:
-        NeoPixelFrame(neopixel *backBuffer, const neopixel *frontBuffer) :
+        NeoPixelFrame(neopixel *backBuffer, const neopixel *frontBuffer, uint32_t pixelCount) :
         _backBuffer(backBuffer),
-        _frontBuffer(frontBuffer)
+        _frontBuffer(frontBuffer),
+        _pixelCount(pixelCount)
         {
         }
 
@@ -36,9 +39,19 @@ class NeoPixelFrame
             return _frontBuffer;
         }
 
+        uint32_t GetPixelCount() const {
+            return _pixelCount;
+        }
+
+        void Clear()
+        {
+            ::memset(_backBuffer, 0, sizeof(neopixel) * _pixelCount);
+        }
+
     private:
         neopixel *_backBuffer;
         const neopixel *_frontBuffer;
+        uint32_t _pixelCount;
 };
 
 class NeoPixelBuffer
@@ -49,13 +62,11 @@ class NeoPixelBuffer
 
         NeoPixelFrame Swap()
         {
-            auto temp = _frontBuffer;
-            _frontBuffer = _backBuffer;
-            _backBuffer = temp;
+            _frontBuffer.swap(_backBuffer);
 
             sem_acquire_blocking(&_swapReady);
-            dma_channel_set_read_addr(_dmaChannel, _frontBuffer, true);
-            return NeoPixelFrame(_backBuffer, _frontBuffer);
+            dma_channel_set_read_addr(_dmaChannel, _frontBuffer.data(), true);
+            return NeoPixelFrame(_backBuffer.data(), _frontBuffer.data(), _pixelCount);
         }
 
 
@@ -77,6 +88,6 @@ class NeoPixelBuffer
         semaphore _swapReady;
 
         uint32_t _pixelCount;
-        neopixel *_frontBuffer;
-        neopixel *_backBuffer;
+        std::vector<neopixel> _frontBuffer;
+        std::vector<neopixel> _backBuffer;
 };

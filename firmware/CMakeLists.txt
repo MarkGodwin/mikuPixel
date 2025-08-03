@@ -1,29 +1,32 @@
-# Generated Cmake Pico project file
-
-cmake_minimum_required(VERSION 3.13)
-
-set(CMAKE_C_STANDARD 11)
-set(CMAKE_CXX_STANDARD 17)
-
-# Initialise pico_sdk from the submodule
-include(../pico-sdk/pico_sdk_init.cmake)
-
-set(PICO_BOARD pico_w CACHE STRING "Board type")
 
 # Pull in Raspberry Pi Pico SDK (must be before project)
-
-if (PICO_SDK_VERSION_STRING VERSION_LESS "1.4.0")
-  message(FATAL_ERROR "Raspberry Pi Pico SDK version 1.4.0 (or later) required. Your version is ${PICO_SDK_VERSION_STRING}")
-endif()
-
-project(mark_neopixel C CXX ASM)
 
 # Initialise the Raspberry Pi Pico SDK
 pico_sdk_init()
 
 # Add executable. Default name is the project name, version 0.1
 
-add_executable(mark_neopixel mark_neopixel.cpp NeoPixelBuffer.cpp Miku.cpp)
+add_executable(mark_neopixel
+  mark_neopixel.cpp
+  NeoPixelBuffer.cpp
+  Miku.cpp
+  configService.cpp
+  deviceConfig.cpp
+  dhcpserver/dhcpserver.c
+  dnsserver/dnsserver.c
+  mqttClient.cpp
+  scheduler.cpp
+  statusLed.cpp
+  serviceStatus.cpp
+  wifiConnection.cpp
+  wifiScanner.cpp
+  webServer.cpp
+  blockStorage.cpp
+  AnimationRunner.cpp
+  PatternEditor.cpp
+  PatternList.cpp
+  PixelMapperAnimation.cpp
+  )
 
 pico_set_program_name(mark_neopixel "mark_neopixel")
 pico_set_program_version(mark_neopixel "0.1")
@@ -38,8 +41,15 @@ target_link_libraries(
   mark_neopixel
   
   pico_stdlib
+  hardware_pwm
   hardware_pio
-  hardware_dma)
+  hardware_dma
+  pico_multicore
+  pico_cyw43_arch_lwip_poll
+  pico_lwip_http
+  pico_lwip_mqtt
+  pico_flash
+  )
 
 # Add the standard include files to the build
 target_include_directories(mark_neopixel PRIVATE
