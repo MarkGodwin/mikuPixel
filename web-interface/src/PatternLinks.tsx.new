@@ -1,0 +1,111 @@
+import React from 'react';
+import { PatternListEntry } from './Pattern';
+
+interface PatternLinksProps {
+    patterns: PatternListEntry[];
+    itemHeight: number;
+    rightOffset: number;
+}
+
+interface ArrowPath {
+    path: string;
+    depth: number;
+}
+
+function calculateArrowPaths(patterns: PatternListEntry[], itemHeight: number, rightOffset: number): ArrowPath[] {
+    const arrows: ArrowPath[] = [];
+    
+    // First, collect all links
+    const links = patterns.map((pattern, idx) => {
+        if (pattern.nextFrame === null) return null;
+        const targetIdx = patterns.findIndex(p => p.id === pattern.nextFrame);
+        if (targetIdx === -1) return null;
+        return { sourceIdx: idx, targetIdx };
+    }).filter((link): link is NonNullable<typeof link> => link !== null);
+
+    // Process each link to determine its path
+    links.forEach(link => {
+        const { sourceIdx, targetIdx } = link;
+        let depth = 1;
+        const min = Math.min(sourceIdx, targetIdx);
+        const max = Math.max(sourceIdx, targetIdx);
+        
+        // Look for links contained within our span
+        links.forEach(otherLink => {
+            const otherMin = Math.min(otherLink.sourceIdx, otherLink.targetIdx);
+            const otherMax = Math.max(otherLink.sourceIdx, otherLink.targetIdx);
+            
+            // If this is another link that overlaps with our span...
+            if (otherMin >= min && otherMax <= max) {
+                // If it's contained within our span or partially overlaps
+                if (otherMin > min || otherMax < max) {
+                    depth = Math.max(depth, 2);
+                }
+            }
+        });
+
+        const startY = sourceIdx * itemHeight + itemHeight * 3/4;
+        const endY = targetIdx * itemHeight + itemHeight/4;
+        const xOffset = rightOffset + depth * 20;
+
+        if (targetIdx === sourceIdx + 1 && depth === 1) {
+            // Direct connection to next item
+            arrows.push({
+                path: `M ${rightOffset} ${startY} L ${rightOffset + 20} ${startY} L ${rightOffset + 20} ${endY} L ${rightOffset} ${endY}`,
+                depth: 1
+            });
+        } else {
+            // Path that goes out and around
+            arrows.push({
+                path: `M ${rightOffset} ${startY} L ${xOffset} ${startY} L ${xOffset} ${endY} L ${rightOffset} ${endY}`,
+                depth
+            });
+        }
+    });
+
+    return arrows;
+}
+
+export const PatternLinks: React.FC<PatternLinksProps> = ({ patterns, itemHeight, rightOffset }) => {
+    const arrows = calculateArrowPaths(patterns, itemHeight, rightOffset);
+    
+    return (
+        <svg
+            style={{
+                position: 'absolute',
+                top: 0,
+                right: 0,
+                height: '100%',
+                width: '100%',
+                pointerEvents: 'none'
+            }}
+        >
+            {arrows.map((arrow, index) => (
+                <path
+                    key={index}
+                    d={arrow.path}
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    markerEnd="url(#arrowhead)"
+                    opacity={0.5}
+                />
+            ))}
+            <defs>
+                <marker
+                    id="arrowhead"
+                    markerWidth="10"
+                    markerHeight="7"
+                    refX="9"
+                    refY="3.5"
+                    orient="auto"
+                >
+                    <polygon
+                        points="0 0, 10 3.5, 0 7"
+                        fill="currentColor"
+                    />
+                </marker>
+            </defs>
+        </svg>
+    );
+};

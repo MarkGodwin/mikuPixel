@@ -1,12 +1,12 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 
-import { PixelPosition } from './Pattern';
+import { PixelPosition, RgbPixel } from './Pattern';
 import { RgbColor, RgbColorPicker } from 'react-colorful';
 
 type PatternEditorProps = {
     isEditing: boolean,
-    pixels: number[],
-    onPixelChange: (index: number, colour: number) => void
+    pixels: RgbPixel[],
+    onPixelChange: (index: number, colour: RgbPixel) => void
     pixelPositions: PixelPosition[],
     backgroundImageUrl: string
 };
@@ -56,20 +56,17 @@ const PatternEditor : React.FC<PatternEditorProps> = ({isEditing, pixels, onPixe
                     const y = canvas.height - pixelPositions[i].y * 5 + 4;
 
                     const color = pixels[i];
-                    const r = (color >> 16) & 0xff;
-                    const g = (color >> 8) & 0xff;
-                    const b = color & 0xff;
-                    const brightness =  1.6 * (0.299 * r + 0.587 * g + 0.114 * b) / 255 ;
+                    const brightness =  1.6 * (0.299 * color.r + 0.587 * color.g + 0.114 * color.b) / 255 ;
 
                     const whiteFactor = Math.max(brightness - 1, 0);
-                    const brightr = r + (255-r) * whiteFactor;
-                    const brightg = g + (255-g) * whiteFactor;
-                    const brightb = b + (255-b) * whiteFactor;
+                    const brightR = color.r + (255-color.r) * whiteFactor;
+                    const brightG = color.g + (255-color.g) * whiteFactor;
+                    const brightB = color.b + (255-color.b) * whiteFactor;
                     
                     const gradient = ctx.createRadialGradient(x, y, 0, x, y, 16);
-                    gradient.addColorStop(0, `rgba(${brightr}, ${brightg}, ${brightb}, ${brightness})`);
-                    gradient.addColorStop(0.5, `rgba(${r}, ${g}, ${b}, ${brightness/1.6})`);
-                    gradient.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0)`);
+                    gradient.addColorStop(0, `rgba(${brightR}, ${brightG}, ${brightB}, ${brightness})`);
+                    gradient.addColorStop(0.5, `rgba(${color.r}, ${color.g}, ${color.b}, ${brightness/1.6})`);
+                    gradient.addColorStop(1, `rgba(${color.r}, ${color.g}, ${color.b}, 0)`);
 
                     // Use the gradient as fill style
                     ctx.fillStyle = gradient;                    
@@ -95,14 +92,13 @@ const PatternEditor : React.FC<PatternEditorProps> = ({isEditing, pixels, onPixe
         setCursor({x: event.nativeEvent.offsetX, y: event.nativeEvent.offsetY});
 
         if(isDrawing && isEditing) {
-            const newColor = (drawingColour.r << 16) | (drawingColour.g << 8) | drawingColour.b;
             for(let i = 0; i < pixelPositions.length; i++) {
                 const x = pixelPositions[i].x * 5 + 30;
                 const y = canvasRef.current!.height - pixelPositions[i].y * 5 + 4;
 
                 if(Math.pow(event.nativeEvent.offsetX - x, 2) + Math.pow(event.nativeEvent.offsetY - y, 2) < 100 &&
-                    pixels[i] !== newColor) {
-                    onPixelChange(i, newColor); // Live change the pixel color on the device too
+                    (pixels[i].r !== drawingColour.r || pixels[i].g !== drawingColour.g || pixels[i].b !== drawingColour.b)) {
+                    onPixelChange(i, drawingColour); // Live change the pixel color on the device too
                 }
             }
 

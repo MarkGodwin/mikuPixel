@@ -10,13 +10,12 @@
 #include <memory>
 
 class DeviceConfig;
-class StatusLed;
 
 /// @brief Trivial wrapper around wifi API to handle connection status
 class WifiConnection : public IWifiConnection
 {
     public:
-        WifiConnection(std::shared_ptr<DeviceConfig> config, bool apMode, StatusLed *statusLed);
+        WifiConnection(std::shared_ptr<DeviceConfig> config, bool apMode);
         void Start();
 
         virtual bool IsConnected();
@@ -27,7 +26,6 @@ class WifiConnection : public IWifiConnection
 
         std::unique_ptr<ScheduledTimer> _wifiWatchdog;
         std::shared_ptr<DeviceConfig> _config;
-        StatusLed *_statusLed;
         bool _apMode;
         bool _wasConnected;
         // For AP mode        

@@ -1,4 +1,8 @@
 [
-    { "id": 1, "name": "Test Pattern 1" },
-    { "id": 2, "name": "Miku Pattern" }
+    { "id": 0, "name": "First Pattern", "nextFrame": 6 },
+    { "id": 1, "name": "Test Pattern 1", "nextFrame": null },
+    { "id": 2, "name": "Miku Pattern 1", "nextFrame": 3 },
+    { "id": 3, "name": "Miku Pattern 2", "nextFrame": 5 },
+    { "id": 5, "name": "Miku Pattern 3", "nextFrame": 2 },
+    { "id": 6, "name": "Miku Pattern 4", "nextFrame": null }
 ]

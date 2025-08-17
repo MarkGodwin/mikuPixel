@@ -25,15 +25,13 @@ public:
 private:
     int16_t HandlePatternsResponse(char *pcInsert, int iInsertLen, uint16_t tagPart, uint16_t *nextPart);
     int16_t HandlePatternResponse(char *pcInsert, int iInsertLen, uint16_t tagPart, uint16_t *nextPart);
-    int16_t HandleAddResponse(char *pcInsert, int iInsertLen, uint16_t tagPart, uint16_t *nextPart);
 
-    bool AddPattern(const CgiParams &params);
+    uint16_t CreateNewPatternId();
+
+    uint16_t AddPattern(const CgiParams &params);    
     bool BeginEdit(const CgiParams &params);
     bool EndEdit(const CgiParams &params);
     bool SaveGetParams(const CgiParams &params);
-
-    uint16_t _nextId; // Next ID to use for a new pattern
-    uint16_t _newPatternId; // ID of the last pattern added
 
     std::list<SsiSubscription> _ssiHandlers;
     std::list<CgiSubscription> _cgiHandlers;

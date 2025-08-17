@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "debug.h"
 #include "dhcpserver/dhcpserver.h"
 #include "dnsserver/dnsserver.h"
 #include <memory>
@@ -10,17 +11,18 @@
 #include <map>
 #include <string>
 #include <string.h>
+#include "bufferOutput.h"
 
 class DeviceConfig;
 class ServiceControl;
 class IWifiConnection;
-class StatusLed;
 struct CgiContext;
 struct fs_file;
 
 typedef std::map<std::string, std::string> CgiParams;
-typedef std::function<bool(const CgiParams &)> CgiSubscribeFunc;
-typedef std::function<uint32_t(const CgiParams &, char *buffer, uint32_t length)> CgiSubscribeResultFunc;
+template<typename T>
+using CgiSubscribeFunc = std::function<T(const CgiParams &)>;
+using CgiSubscribeResultFunc = std::function<uint32_t(const CgiParams &, char *buffer, uint32_t length)>;
 
 typedef std::function<uint16_t(char *buffer, int len, uint16_t tagPart, uint16_t *nextPart)> SsiSubscribeFunc;
 
@@ -30,7 +32,7 @@ typedef std::function<uint16_t(char *buffer, int len, uint16_t tagPart, uint16_t
 class WebServer
 {
     public:
-        WebServer(std::shared_ptr<DeviceConfig> config, std::shared_ptr<IWifiConnection> wifiConnection, StatusLed *statusLed);
+        WebServer(std::shared_ptr<DeviceConfig> config, std::shared_ptr<IWifiConnection> WifiConnection);
 
         void Start();
 
@@ -49,7 +51,6 @@ class WebServer
 
         std::shared_ptr<DeviceConfig> _config;
         std::shared_ptr<IWifiConnection> _wifiConnection;
-        StatusLed *_statusLed;
 
         std::map<std::string, CgiSubscribeResultFunc> _requestSubscriptions;
         std::map<std::string, SsiSubscribeFunc> _responseSubscriptions;
@@ -67,21 +68,6 @@ class CgiSubscription
             _webInterface->AddRequestHandler(_url, std::move(callback));
         }
 
-        CgiSubscription(std::shared_ptr<WebServer> webInterface, std::string url, CgiSubscribeFunc &&callback)
-        :   CgiSubscription(webInterface, url, [this, cb = std::move(callback)](const CgiParams &params, char *buffer, uint32_t length)
-        {
-            auto result = cb(params);
-            if(result)
-            {
-                memcpy(buffer, "true", 4);
-                return 4;
-            }
-            memcpy(buffer, "false", 5);
-            return 5;
-         } )
-        {
-        }
-
         CgiSubscription(CgiSubscription &&other)
         :   _webInterface(std::move(other._webInterface)),
             _url(std::move(other._url))
@@ -91,14 +77,28 @@ class CgiSubscription
         ~CgiSubscription()
         {
             if(_webInterface)
+            {
+                DBG_PRINT("Removing request handler for %s\n", _url.c_str());
                 _webInterface->RemoveRequestHandler(_url);
+            }
         }
     private:
-        CgiSubscription(const CgiSubscription &) = delete;        
+        CgiSubscription(const CgiSubscription &) = delete;
 
         std::shared_ptr<WebServer> _webInterface;
         std::string _url;
 };
+
+template<typename T>
+static CgiSubscription MakeCgiSubscription(std::shared_ptr<WebServer> webInterface, std::string url, CgiSubscribeFunc<T> &&callback)
+{
+    return CgiSubscription(webInterface, url, [cb = std::move(callback)](const CgiParams &params, char *buffer, uint32_t length)
+{
+    BufferOutput output(buffer, length);
+    output.Append(cb(params));
+    return output.BytesWritten();
+    });
+}
 
 /// @brief Subscription to a Server-side include callback from the webserver. Used to replace fixed tags in the output data.
 class SsiSubscription

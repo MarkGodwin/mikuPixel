@@ -27,7 +27,7 @@ public:
 
     virtual uint32_t DrawFrame(NeoPixelFrame frame, uint32_t frameCounter)
     {
-        std::copy(_pixels.begin(), _pixels.end(), frame.GetBuffer());
+        std::transform(_pixels.begin(), _pixels.end(), frame.GetBuffer(), [](const neopixel &pixel) { return pixel.gammaCorrected(); });
         return 1000 / 30; // 30 FPS, so edits are visible
     }
 private:

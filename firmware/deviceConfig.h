@@ -28,6 +28,9 @@ struct PatternConfig
 {
     char patternName[48];
     neopixel pixels[PIXEL_COUNT];
+    int32_t nextFrameId; // ID of the next frame in the animation, -1 if no next frame
+    int32_t frameTime; // Duration of this frame in milliseconds
+    int32_t transitionTime;
 };
 
 

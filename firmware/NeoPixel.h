@@ -53,7 +53,17 @@ union neopixel
 
     neopixel fade(int value) const
     {
-        return neopixel(red * value / 255, green * value / 255, blue * value / 255, white * value / 255);
+        return neopixel(red * value / 256, green * value / 256, blue * value / 256, white * value / 256);
+    }
+
+    neopixel blend(neopixel other, int weight) const
+    {
+        return neopixel(
+            (red * (256 - weight) + other.red * weight) / 256,
+            (green * (256 - weight) + other.green * weight) / 256,
+            (blue * (256 - weight) + other.blue * weight) / 256,
+            (white * (256 - weight) + other.white * weight) / 256
+        );
     }
 };
 

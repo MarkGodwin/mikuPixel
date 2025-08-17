@@ -17,23 +17,25 @@
 #include "debug.h"
 #include "configService.h"
 #include "deviceConfig.h"
-#include "statusLed.h"
 #include "serviceStatus.h"
 #include "serviceControl.h"
 #include "AnimationRunner.h"
-#include "PixelMapperAnimation.h"
+#include "animations/PixelMapperAnimation.h"
+#include "animations/WelcomeAnimation.h"
+#include "animations/PingAnimation.h"
 #include "webServer.h"
 #include "wifiConnection.h"
 #include "wifiScanner.h"
 #include "mqttClient.h"
 #include "PatternList.h"
+#include "AnimationController.h"
+#include "animations/SolidMikuAnimation.h"
 
 
 #define DMA_CHANNEL 0
 #define PIXEL_PIN 2
 
 // Hard buttons
-#define PIN_STATUSLED 13
 #define PIN_RESET 14
 #define PIN_WIFI 15
 
@@ -43,63 +45,8 @@
 #define STORAGE_BLOCK_SIZE 2044
 
 
-static uint32_t miku_all_parts(uint32_t frame, NeoPixelFrame *neopixels)
-{
 
 
-    for(auto partIndex = 0; partIndex < sizeof(mikuParts)/sizeof(mikuParts[0]); partIndex++)
-    {
-        auto part = mikuParts[partIndex];
-        for(auto idx = part.index; idx < part.index + part.length; idx++)
-        {
-            neopixels->SetPixel(idx, part.colour.fade(128).gammaCorrected() );
-        }
-    }
-
-    return 1000;
-}
-
-
-static uint32_t miku_part_cycle(uint32_t frame, NeoPixelFrame *neopixels)
-{
-    memset(neopixels->GetBuffer(), 0, sizeof(neopixel) * PIXEL_COUNT);
-
-    int fade = frame % 256;
-    int partIndex = (frame / 256) % 10;
-    auto part = mikuParts[partIndex];
-
-    // Fading out
-    for(auto idx = part.index; idx < part.index + part.length; idx++)
-    {
-        neopixels->SetPixel(idx, part.colour.fade(255 - fade).gammaCorrected() );
-    }
-
-    // Bright bit
-    partIndex = (partIndex + 1) % 10;
-    part = mikuParts[partIndex];
-    for(auto idx = part.index; idx < part.index + part.length; idx++)
-    {
-        neopixels->SetPixel(idx, part.colour.gammaCorrected());
-    }
-
-    // Bright bit
-    partIndex = (partIndex + 1) % 10;
-    part = mikuParts[partIndex];
-    for(auto idx = part.index; idx < part.index + part.length; idx++)
-    {
-        neopixels->SetPixel(idx, part.colour.gammaCorrected());
-    }
-
-    // Fading in
-    partIndex = (partIndex + 1) % 10;
-    part = mikuParts[partIndex];
-    for(auto idx = part.index; idx < part.index + part.length; idx++)
-    {
-        neopixels->SetPixel(idx, part.colour.fade(fade).gammaCorrected());
-    }
-
-    return 0;
-}
 
 static uint32_t ring_spin(uint32_t frame, NeoPixelFrame *neopixels)
 {
@@ -119,49 +66,6 @@ static uint32_t ring_spin(uint32_t frame, NeoPixelFrame *neopixels)
     neopixels->SetPixel((idx + 200) % PIXEL_COUNT, 0x0000FF00);
     neopixels->SetPixel((idx + 250) % PIXEL_COUNT, 0xFF000000);
     neopixels->SetPixel((idx + 300) % PIXEL_COUNT, 0x00FF0000);
-
-    return 10;
-}
-
-uint32_t blurDrops(uint32_t frame, NeoPixelFrame *neopixels)
-{
-    auto input = neopixels->GetLastBuffer();
-    auto output = neopixels->GetBuffer();
-
-
-    for(auto x = 0; x < PIXEL_COUNT; x++)
-    {
-        auto left = (x - 1) % PIXEL_COUNT;
-        auto right = (x + 1) % PIXEL_COUNT;
-        output[x].red = ((int)input[left].red + input[x].red + input[x].red + input[right].red) / 4;
-        output[x].green = ((int)input[left].green + input[x].green + input[x].green + input[right].green) / 4;
-        output[x].blue = ((int)input[left].blue + input[x].blue + input[x].blue + input[right].blue) / 4;
-
-        if((rand() & 1023) == 100)
-        {
-            //puts("drip");
-            output[x].colour = 0;
-            switch(rand() % 3)
-            {
-                case 0:
-                    output[x].red = 127;
-                    break;
-                case 1:
-                    output[x].green = 127;
-                    break;
-                case 2:
-                    output[x].blue = 127;
-                    output[x].red = 127;
-                    output[x].green = 127;
-                    break;
-            }
-            output[x].red += rand() & 127;
-            output[x].green += rand() & 127;
-            output[x].blue += rand() & 127;           
-        }        
-    }
-
-
 
     return 10;
 }
@@ -237,22 +141,20 @@ void doPollingSleep(uint ms)
 }
 
 const WifiConfig *checkConfig(
-    std::shared_ptr<DeviceConfig> config,
-    StatusLed *statusLed);
+    std::shared_ptr<DeviceConfig> config);
 
 void runServiceMode(
     std::shared_ptr<WebServer> webServer,
     std::shared_ptr<DeviceConfig> config,
     std::shared_ptr<WifiConnection> wifiConnection,
     std::shared_ptr<AnimationRunner> commandQueue,
-    std::shared_ptr<ServiceControl> service,
-    StatusLed *mqttLed);
+    std::shared_ptr<ServiceControl> service);
 
 void runSetupMode(
     std::shared_ptr<WebServer> webServer,
     std::shared_ptr<ServiceControl> service);
 
-bool checkButtonHeld(int inputPin, StatusLed *led);
+bool checkButtonHeld(int inputPin);
 
 int main()
 {
@@ -276,58 +178,63 @@ int main()
         return -1;
     }
 
-    // Pointless startup cycle, to give me enough time to start putty
-
-    StatusLed statusLed(PIN_STATUSLED);
-
-    // Pointless startup cycle, to give me enough time to start putty
-    statusLed.Pulse(256, 768, 128);
-    doPollingSleep(6000);
-    statusLed.TurnOff();
 
     auto neopixels = std::make_unique<NeoPixelBuffer>(DMA_CHANNEL, DMA_IRQ_0, pio0, 0, PIXEL_PIN, PIXEL_COUNT);
 
     auto animationRunner = std::make_shared<AnimationRunner>(std::move(neopixels));
 
-    animationRunner->SetAnimation(std::make_unique<PixelMapperAnimation>(PIXEL_COUNT, 2));
+    // Pointless startup cycle, to give me enough time to start putty
+
+    animationRunner->SetAnimation(std::make_unique<WelcomeAnimation>(PIXEL_COUNT));
     animationRunner->Start();
+
+    // Pointless startup cycle, to give me enough time to start putty
+    doPollingSleep(6000);
+
 
     // Store flash settings at the very top of Flash memory
     // ALL STORED DATA WILL BE LOST IF THESE ARE CHANGED
     const uint32_t StorageSize = STORAGE_SECTORS * FLASH_SECTOR_SIZE;
 
     auto config = std::make_shared<DeviceConfig>(StorageSize, STORAGE_BLOCK_SIZE);
-    auto wifiConfig = checkConfig(config, &statusLed);
+    auto wifiConfig = checkConfig(config);
     if(wifiConfig == nullptr)
     {
-        statusLed.SetLevel(256);
+        DBG_PUT("Wifi configuration corrupt.");
         return -1;
     }
+
+    // Uncomment to clear all patterns
+    //config->SavePatternIds(nullptr, 0);
 
     auto apMode = !wifiConfig->ssid[0];
 
     auto service = std::make_shared<ServiceControl>();
 
-    if(checkButtonHeld(PIN_WIFI, &statusLed))
+    if(checkButtonHeld(PIN_WIFI))
     {
         DBG_PUT("Starting in WIFI Setup mode, as button WIFI button is pressed");
         apMode = true;
     }
 
     DBG_PUT("Starting the WiFi Scanner...");
-    auto wifiConnection = std::make_shared<WifiConnection>(config, apMode, &statusLed);
+    auto wifiConnection = std::make_shared<WifiConnection>(config, apMode);
 
     // Do an initial WiFi scan before entering AP mode. We don't seem to be able
     // to scan once in AP mode.
     auto wifiScanner = std::make_shared<WifiScanner>(apMode);
     wifiScanner->WaitForScan();
 
+    DBG_PUT("Starting initial animation...");
+    animationRunner->SetAnimation(std::make_unique<PingAnimation>());
+
+
     // Now connect to WiFi or Enable AP mode
     DBG_PRINT("Enabling WiFi in %s mode...\n", apMode ? "AP" : "Client");
     wifiConnection->Start();
 
     DBG_PUT("Starting the web interface...");
-    auto webServer = std::make_shared<WebServer>(config, wifiConnection, &statusLed);
+    auto webServer = std::make_shared<WebServer>(config, wifiConnection);
     webServer->Start();
     auto configService = std::make_shared<ConfigService>(config, webServer, wifiScanner, service);
 
@@ -337,7 +244,7 @@ int main()
     }
     else
     {
-        runServiceMode(webServer, config, wifiConnection, animationRunner, service, &statusLed);
+        runServiceMode(webServer, config, wifiConnection, animationRunner, service);
     }
 
     DBG_PUT("Restarting now!");
@@ -355,22 +262,18 @@ int main()
     DBG_PUT("ERM!!! Why no reboot?");
 }
 
-bool checkButtonHeld(int inputPin, StatusLed *led)
+bool checkButtonHeld(int inputPin)
 {
     int a = 0;
     for(a = 0; !gpio_get(inputPin) && a < 100; a++)
     {
-        if(a == 0)
-            led->Pulse(1024, 2048, 256);
         doPollingSleep(50);
     }
-    led->TurnOff();
     return a == 100;
 }
 
 const WifiConfig *checkConfig(
-    std::shared_ptr<DeviceConfig> config,
-    StatusLed *redLed)
+    std::shared_ptr<DeviceConfig> config)
 {
     DBG_PUT("Checking Device config...");
     
@@ -379,7 +282,7 @@ const WifiConfig *checkConfig(
         DBG_PUT("WiFi Config not found.");
     else
     {
-        needReset = checkButtonHeld(PIN_RESET, redLed);
+        needReset = checkButtonHeld(PIN_RESET);
     }
 
     if(needReset)
@@ -403,19 +306,24 @@ void runServiceMode(
     std::shared_ptr<DeviceConfig> config,
     std::shared_ptr<WifiConnection> wifiConnection,
     std::shared_ptr<AnimationRunner> animationRunner,
-    std::shared_ptr<ServiceControl> service,
-    StatusLed *mqttLed)
+    std::shared_ptr<ServiceControl> service)
 {
 
-    auto mqttClient = std::make_shared<MqttClient>(config, wifiConnection, "miku/status", "online", "offline", mqttLed);
+    auto mqttClient = std::make_shared<MqttClient>(config, wifiConnection, "miku/status", "online", "offline");
 
     mqttClient->Start();
+
+    animationRunner->SetAnimation(std::make_unique<SolidMikuAnimation>());
+
     // Subscribe by wildcard to reduce overhead
     //mqttClient->SubscribeTopic("miku/cmd");
     
-
+    DBG_PUT("Starting the Service Status Controller...");
     ServiceStatus statusApi(webServer, mqttClient, false);
+    DBG_PUT("Starting the Patterns List...");
     PatternList patterns(webServer, config, animationRunner);
+    DBG_PUT("Starting the Animation Controller...");
+    AnimationController animationController(webServer, config, animationRunner);
 
     //ScheduledTimer republishTimer([&blinds, &remotes] () {
     //    // Try to republish discovery information for one device

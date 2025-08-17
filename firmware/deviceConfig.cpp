@@ -65,9 +65,12 @@ void DeviceConfig::SavePatternConfig(uint16_t patternId, const PatternConfig *pa
     if(existingCfg &&
         *patternConfig == *existingCfg)
     {
+        DBG_PUT("No changes to save");
         return;
     }
+    DBG_PRINT("Saving pattern config for %d\n", patternId);
     _storage.SaveBlock(patternConfigMagic | patternId, (const uint8_t *)patternConfig, sizeof(*patternConfig));
+    DBG_PUT("Pattern config saved\n");
 }
 
 void DeviceConfig::DeletePatternConfig(uint16_t patternId)
@@ -97,6 +100,8 @@ void DeviceConfig::HardReset()
 
 void DeviceConfig::SaveIdList(uint32_t header, const uint16_t *ids, uint32_t count)
 {
+    DBG_PRINT("Saving %d IDs to header %08x\n", count, header);
+
     size_t bytes = sizeof(count) + sizeof(uint16_t) * count;
     if(bytes > _storage.BlockSize())
         DBG_PUT("Too many ids to fit in the block. FAIL\n");
@@ -158,5 +163,8 @@ const uint32_t *DeviceConfig::GetIdList32(uint32_t header, uint32_t *count)
 bool operator==(const PatternConfig &left, const PatternConfig &right)
 {
     return !strcmp(left.patternName, right.patternName) &&
-        !memcmp(left.pixels, right.pixels, sizeof(left.pixels));
+        !memcmp(left.pixels, right.pixels, sizeof(left.pixels)) &&
+        left.nextFrameId == right.nextFrameId &&
+        left.frameTime == right.frameTime &&
+        left.transitionTime == right.transitionTime;
 }

@@ -5,12 +5,10 @@
 
 #include "wifiConnection.h"
 #include "deviceConfig.h"
-#include "statusLed.h"
 #include "debug.h"
 
-WifiConnection::WifiConnection(std::shared_ptr<DeviceConfig> config, bool apMode, StatusLed *statusLed)
+WifiConnection::WifiConnection(std::shared_ptr<DeviceConfig> config, bool apMode)
 : _apMode(apMode),
-  _statusLed(statusLed),
   _config(std::move(config)),
   _wasConnected(false)
 {
@@ -43,8 +41,6 @@ void WifiConnection::Start()
         dhcp_server_init(&_dhcp_server, &host, &mask);
         // Start the dns server
         dns_server_init(&_dns_server, &host);
-
-        _statusLed->Pulse(256, 1024, 64);
 
     }
     else
@@ -79,7 +75,6 @@ uint32_t WifiConnection::WifiWatchdog()
     if(state <= 0)
     {
         _wasConnected = false;
-        _statusLed->TurnOff();
         DBG_PRINT("Wifi: Not connected (%d)\n", state);
 
         auto cfg = _config->GetWifiConfig();
@@ -91,8 +86,6 @@ uint32_t WifiConnection::WifiWatchdog()
     }
     else if(state == CYW43_LINK_UP)
     {
-        if(!_wasConnected)
-            _statusLed->Pulse(0, 1024, 128);
         _wasConnected = true;
         DBG_PRINT_NA(".");
         return 60000;
@@ -100,7 +93,6 @@ uint32_t WifiConnection::WifiWatchdog()
     else
     {
         _wasConnected = false;
-        _statusLed->Pulse(0, 2048, 512);
         DBG_PRINT("Wifi: No IP assigned (%d)\n", state);
         return 10000;
     }

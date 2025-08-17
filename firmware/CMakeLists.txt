@@ -16,16 +16,20 @@ add_executable(mark_neopixel
   dnsserver/dnsserver.c
   mqttClient.cpp
   scheduler.cpp
-  statusLed.cpp
   serviceStatus.cpp
   wifiConnection.cpp
   wifiScanner.cpp
   webServer.cpp
   blockStorage.cpp
+  AnimationController.cpp
   AnimationRunner.cpp
   PatternEditor.cpp
   PatternList.cpp
-  PixelMapperAnimation.cpp
+  animations/MikuSweepAnimation.cpp
+  animations/PatternSequenceAnimation.cpp
+  animations/PixelMapperAnimation.cpp
+  animations/PulsingMikuAnimation.cpp
+  animations/WelcomeAnimation.cpp
   )
 
 pico_set_program_name(mark_neopixel "mark_neopixel")

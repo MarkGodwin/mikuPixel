@@ -22,14 +22,13 @@ ConfigService::ConfigService(
     std::shared_ptr<ServiceControl> serviceControl)
 :  _config(std::move(config)),
    _wifiScanner(std::move(wifiScanner)),
-   _configController(webServer, "/api/configure.json", [this](const CgiParams &params) { return OnConfigure(params); } ),
+   _configController(MakeCgiSubscription<bool>(webServer, "/api/configure.json", [this](const CgiParams &params) { return OnConfigure(params); } )),
    _serviceControl(std::move(serviceControl))
 {
 
     _ssiHandlers.push_back(SsiSubscription(webServer, "ssid", [this] (char *pcInsert, int iInsertLen, uint16_t tagPart, uint16_t *nextPart) { return HandleWifiConfigResponse(TAGINDEX_SSID, pcInsert, iInsertLen, tagPart, nextPart); }));
     _ssiHandlers.push_back(SsiSubscription(webServer, "ssidList", [this] (char *pcInsert, int iInsertLen, uint16_t tagPart, uint16_t *nextPart) { return HandleWifiConfigResponse(TAGINDEX_SSIDLIST, pcInsert, iInsertLen, tagPart, nextPart); }));
 
-    // TODO: std::bind should make this cleaner, if only it would compile.
     _ssiHandlers.push_back(SsiSubscription(webServer, "mqttPort", [this] (char *pcInsert, int iInsertLen, uint16_t tagPart, uint16_t *nextPart) { return HandleMqttConfigResponse(TAGINDEX_MQTTPORT, pcInsert, iInsertLen, tagPart, nextPart); }));
     _ssiHandlers.push_back(SsiSubscription(webServer, "mqttUser", [this] (char *pcInsert, int iInsertLen, uint16_t tagPart, uint16_t *nextPart) { return HandleMqttConfigResponse(TAGINDEX_MQTTUSER, pcInsert, iInsertLen, tagPart, nextPart); }));
     _ssiHandlers.push_back(SsiSubscription(webServer, "mqttTopi", [this] (char *pcInsert, int iInsertLen, uint16_t tagPart, uint16_t *nextPart) { return HandleMqttConfigResponse(TAGINDEX_MQTTTOPIC, pcInsert, iInsertLen, tagPart, nextPart); }));

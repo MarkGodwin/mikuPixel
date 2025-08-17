@@ -95,8 +95,45 @@ void AnimationRunner::Worker()
         // Draw the current animation frame
         auto frameDelay = currentAnimation ? currentAnimation->DrawFrame(frame, frameCounter) : 1000;
         frameCounter++;
+
         // Wait until the previous frame has been shown for the required time
-        sleep_until(delayed_by_ms(frameStart, lastFrameDelay));
+        absolute_time_t targetTime = delayed_by_ms(frameStart, lastFrameDelay);
+
+        /*
+        // Bar chart of sorts to monitor how long the frame took to draw
+        auto sleepMs = ((int64_t)(targetTime - get_absolute_time()))/1024;
+        if(sleepMs <= 0)
+            frame.SetPixel(0, neopixel(255, 0, 0)); // Red pixel
+        else
+        {
+            if(sleepMs > 20)
+                sleepMs = 20;
+            for(auto i = 0; i < sleepMs; i++)
+            {
+                frame.SetPixel(i, neopixel(0, 255, 0)); // Green pixel
+            }
+        }
+        #endif
+        */
+        
+        while(true)
+        {
+            if((int64_t)(targetTime - get_absolute_time()) <= 1000000ll) // microseconds
+            {
+                sleep_until(targetTime);
+                break;
+            }
+
+            // Sleep for a short time to allow early exit
+            sleep_ms(500);
+            {
+                SpinLock lock(_setLock);
+                __compiler_memory_barrier();
+                if (_stopRequested || _newAnimation)
+                    break;
+            }
+        }
+        
         lastFrameDelay = frameDelay;
     }
 }

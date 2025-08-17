@@ -10,17 +10,15 @@
 #include "webServer.h"
 #include "deviceConfig.h"
 #include "serviceControl.h"
-#include "statusLed.h"
 #include "debug.h"
 
 
 // HTTPD callbacks aren't conducive to multiple instances
 WebServer *_globalInstance;
 
-WebServer::WebServer(std::shared_ptr<DeviceConfig> config, std::shared_ptr<IWifiConnection> wifiConnection, StatusLed *statusLed)
+WebServer::WebServer(std::shared_ptr<DeviceConfig> config, std::shared_ptr<IWifiConnection> wifiConnection)
 :   _config(std::move(config)),
-    _wifiConnection(std::move(wifiConnection)),
-    _statusLed(statusLed)
+    _wifiConnection(std::move(wifiConnection))
 {
     _globalInstance = this;
 }
@@ -37,7 +35,7 @@ extern "C" {
                                 char **pcParam, char **pcValue, void *connectionState)
     {
         CgiContext *ctx = (CgiContext *)connectionState;
-        ctx->pThis->HandleRequest(file, uri, iNumParams, pcParam, pcValue, ctx);
+        ctx->resultLength = ctx->pThis->HandleRequest(file, uri, iNumParams, pcParam, pcValue, ctx);
     }
 
     // Called by httpd when a file is opened
@@ -65,8 +63,7 @@ extern "C" {
 
  uint16_t WebServer::HandleResponse(const char *tag, char *pcInsert, int iInsertLen, uint16_t tagPart, uint16_t *nextPart, const CgiContext *cgiContext)
  {
-    _statusLed->SetLevel(2048);
-    
+   
     if(!strcmp(tag, "result"))
     {
         memcpy(pcInsert, cgiContext->resultBuffer, cgiContext->resultLength);
@@ -147,7 +144,6 @@ std::string urlDecode(const char *value)
 
 uint16_t WebServer::HandleRequest(fs_file *file, const char *uri, int iNumParams, char **pcParam, char **pcValue, CgiContext *ctx)
 {
-    _statusLed->SetLevel(2048);
     DBG_PRINT("CGI executed: %s\n", uri);
 
     std::map<std::string, std::string> params;

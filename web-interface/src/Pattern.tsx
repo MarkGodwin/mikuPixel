@@ -3,12 +3,27 @@ export const PIXEL_COUNT = 329
 export interface PatternListEntry {
     id: number;
     name: string;
+    nextFrame: number | null; // The next frame to display, or null if not animated
+}
+
+export interface AnimationListEntry {
+    id: number;
+    name: string;
+}
+
+export interface RgbPixel{
+    r: number;
+    g: number;
+    b: number;
 }
 
 export interface PatternConfig {
     name: string;
-    pixels: number[];
-  };
+    pixels: RgbPixel[];
+    nextFrame: number | null;
+    frameTime: number;
+    transitionTime: number;
+};
 
 export interface PixelPosition {
     x: number;

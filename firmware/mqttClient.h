@@ -14,7 +14,6 @@
 class DeviceConfig;
 class IWifiConnection;
 struct async_context;
-class StatusLed;
 
 typedef std::function<void(const uint8_t *, uint32_t)> SubscribeFunc;
 
@@ -23,7 +22,7 @@ class MqttClient
 {
     public:
 
-        MqttClient(std::shared_ptr<DeviceConfig> config, std::shared_ptr<IWifiConnection> wifi, const char *statusTopic, const char *onlinePayload, const char *offlinePayload, StatusLed *statusLed);
+        MqttClient(std::shared_ptr<DeviceConfig> config, std::shared_ptr<IWifiConnection> wifi, const char *statusTopic, const char *onlinePayload, const char *offlinePayload);
 
         void Start();
 
@@ -67,7 +66,6 @@ class MqttClient
         static void PublishCallbackEntry(void *arg, err_t result);
         void PublishCallback(err_t result);
 
-        StatusLed *_statusLed;
         std::unique_ptr<ScheduledTimer> _watchdogTimer;
         std::shared_ptr<IWifiConnection> _wifi;
         std::shared_ptr<DeviceConfig> _config;

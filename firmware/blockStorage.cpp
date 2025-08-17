@@ -110,18 +110,21 @@ void BlockStorage::SaveBlock(uint32_t blockId, const uint8_t *data, size_t size)
             off += bytes;
             if(space > 0)
                 ::memset(tmpPage + off, 0, space);
-            DBG_PRINT("Flashing one page at 0x%08x\n", params->offset);
 
             flash_range_program(params->offset, tmpPage, sizeof(tmpPage));
-            params->offset += sizeof(d);
+            params->offset += sizeof(tmpPage);
             off = 0; // Next page has no header
-            space = sizeof(d);
+            space = sizeof(tmpPage);
         }
 
-    }, &d, 1000);
+    }, &d, 10000);
     if(result != PICO_OK)
     {
         DBG_PRINT("Write failed (%d)\n", result);
+    }
+    else
+    {
+        DBG_PRINT("Write Finished (%d)\n", result);
     }
 
 }

@@ -7,15 +7,13 @@
 #include "mqttClient.h"
 #include "deviceConfig.h"
 #include "iwifiConnection.h"
-#include "statusLed.h"
 
-MqttClient::MqttClient(std::shared_ptr<DeviceConfig> config, std::shared_ptr<IWifiConnection> wifi, const char *statusTopic, const char *onlinePayload, const char *offlinePayload, StatusLed *statusLed)
+MqttClient::MqttClient(std::shared_ptr<DeviceConfig> config, std::shared_ptr<IWifiConnection> wifi, const char *statusTopic, const char *onlinePayload, const char *offlinePayload)
 : _config(std::move(config)),
   _wifi(std::move(wifi)),
   _statusTopic(statusTopic),
   _onlinePayload(onlinePayload),
   _offlinePayload(offlinePayload),
-  _statusLed(statusLed),
   _payload(nullptr),
   _client(nullptr)
 {
@@ -76,7 +74,6 @@ void MqttClient::DoConnect()
     else
     {
         DBG_PUT("Mqtt connection starting...");
-        _statusLed->Pulse(1024, 2048, 256);
     }
 }
 
@@ -158,7 +155,6 @@ void MqttClient::ConnectionCallback(mqtt_connection_status_t status)
             DBG_PUT("Mqtt client is connected");
             Publish(_statusTopic, (const uint8_t *)_onlinePayload, strlen(_onlinePayload));
             DoSubscribe();
-            _statusLed->Pulse(0, 512, 64);
             // Cheat: The main loop will do a republish of anything that needs it
             return;
 
@@ -176,7 +172,6 @@ void MqttClient::ConnectionCallback(mqtt_connection_status_t status)
 
     }
 
-    _statusLed->TurnOff();
 }
 
 void MqttClient::DoSubscribe()
@@ -199,7 +194,6 @@ void MqttClient::SubscriptionResultCallback(err_t result)
 
 void MqttClient::PublishCallback(err_t result)
 {
-    _statusLed->SetLevel(2048);
     if(result)
         DBG_PRINT("Publish Error: %d\n", result);
 }
@@ -218,7 +212,6 @@ void MqttClient::IncomingPublishCallback(const char *topic, u32_t tot_len)
         return;
     }
 
-    _statusLed->SetLevel(2048);
     if(tot_len > 2048)
     {
         DBG_PRINT("Recieved a message of %d bytes, greater than maximum buffer size\n", tot_len);
@@ -245,7 +238,6 @@ void MqttClient::IncomingPayloadCallback(const u8_t *data, u16_t len, u8_t flags
         DBG_PRINT("Ignoring %d bytes of unexpected payload\n", len);
     }
 
-    _statusLed->SetLevel(2048);
     auto remaining = _payloadLength - _payloadReceived;
     if(len > remaining)
     {

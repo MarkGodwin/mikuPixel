@@ -87,6 +87,11 @@ class BufferOutput
             _written ++;
         }
 
+        void Append(bool b)
+        {
+            Append(b ? "true" : "false");
+        }
+
 
     private:
         char *_buffer;
