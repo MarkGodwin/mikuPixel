@@ -1,6 +1,9 @@
 
 #include "Miku.h"
 
+// Shared
+neopixel GridBuffer[127][127];
+
 const PositionMapping PixelPositions[] = {
     {101, 42},
     {101, 45},
@@ -332,3 +335,5 @@ const PositionMapping PixelPositions[] = {
     {26, 108},
     {27, 109},
 };
+
+// Maps out connections between all of the runs of Miku:

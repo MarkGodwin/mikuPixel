@@ -25,10 +25,12 @@ add_executable(mark_neopixel
   AnimationRunner.cpp
   PatternEditor.cpp
   PatternList.cpp
+  animations/MarqueeAnimation.cpp
   animations/MikuSweepAnimation.cpp
   animations/PatternSequenceAnimation.cpp
   animations/PixelMapperAnimation.cpp
   animations/PulsingMikuAnimation.cpp
+  animations/TrainAnimation.cpp
   animations/WelcomeAnimation.cpp
   )
 

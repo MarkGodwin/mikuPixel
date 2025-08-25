@@ -11,6 +11,8 @@
 #include <algorithm>
 #include "animations/MikuSweepAnimation.h"
 #include "animations/PingAnimation.h"
+#include "animations/TrainAnimation.h"
+#include "animations/MarqueeAnimation.h"
 
 AnimationController::AnimationController(std::shared_ptr<WebServer> webServer,
                                        std::shared_ptr<DeviceConfig> deviceConfig,
@@ -29,6 +31,8 @@ AnimationController::AnimationController(std::shared_ptr<WebServer> webServer,
         {"LED Mapper", []() { return std::make_unique<PixelMapperAnimation>(PIXEL_COUNT, 4); }},
         {"Wifi Ping", []() { return std::make_unique<PingAnimation>(); }},
         {"Random Drops", []() { return std::make_unique<RandomDropsAnimation>(); }},
+        {"Trains", []() { return std::make_unique<TrainAnimation>(); }},
+        {"Marquee", []() { return std::make_unique<MarqueeAnimation>(); }},
     })
 {
 

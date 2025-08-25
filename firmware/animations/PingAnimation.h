@@ -26,7 +26,7 @@ public:
                 // Within the radius, set to white
                 frame.SetPixel(i, neopixel(128, 128, 128));
             }
-            else if(dist < 32)
+            else if(dist < 64)
             {
                 // Close to the radius, set to blue
                 frame.SetPixel(i, neopixel(0, 0, 128));
