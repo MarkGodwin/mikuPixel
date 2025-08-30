@@ -1,10 +1,10 @@
-// Copyright (c) 2023 Mark Godwin.
+// Copyright (c) 2025 Mark Godwin.
 // SPDX-License-Identifier: MIT
 
+#include "mikuPixel.h"
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-#include "debug.h"
 #include "pico/flash.h"
 #include "pico/malloc.h"
 

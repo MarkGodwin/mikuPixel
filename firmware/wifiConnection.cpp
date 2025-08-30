@@ -1,11 +1,11 @@
-// Copyright (c) 2023 Mark Godwin.
+// Copyright (c) 2025 Mark Godwin.
 // SPDX-License-Identifier: MIT
 
+#include "mikuPixel.h"
 #include "pico/cyw43_arch.h"
 
 #include "wifiConnection.h"
 #include "deviceConfig.h"
-#include "debug.h"
 
 WifiConnection::WifiConnection(std::shared_ptr<DeviceConfig> config, bool apMode)
 : _apMode(apMode),

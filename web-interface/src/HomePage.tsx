@@ -4,6 +4,7 @@ import { WifiSetup } from './WifiSetup';
 import logo from './logo.svg';
 import pico from './pico.svg';
 import { useAppStatus } from './hooks/useAppStatus';
+import { BasicLightControls } from './BasicLightControls';
 
 
 export function HomePage() {
@@ -50,7 +51,7 @@ export function HomePage() {
             </ListGroup>
           </Col>
           </Row>  
-          {status.apMode ? <WifiSetup /> : null}
+          {status.apMode ? <WifiSetup /> : <BasicLightControls />}
 
           <p>Copyright ©️ 2025 Mark Godwin.</p>
         </Container>

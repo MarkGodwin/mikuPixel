@@ -1,5 +1,4 @@
-#include <stdio.h>
-#include <pico/stdlib.h>
+#include "mikuPixel.h"
 #include "pico/sem.h"
 #include "pico/flash.h"
 #include "pico/cyw43_arch.h"
@@ -14,7 +13,6 @@
 #include "NeoPixelBuffer.h"
 #include "Miku.h"
 #include <stdlib.h>
-#include "debug.h"
 #include "configService.h"
 #include "deviceConfig.h"
 #include "serviceStatus.h"
@@ -30,6 +28,7 @@
 #include "PatternList.h"
 #include "AnimationController.h"
 #include "animations/SolidMikuAnimation.h"
+#include "LightController.h"
 
 
 #define DMA_CHANNEL 0
@@ -88,10 +87,13 @@ void runSetupMode(
 
 bool checkButtonHeld(int inputPin);
 
+char macAddress[13];
+
 int main()
 {
 #ifndef NDEBUG
     stdio_init_all();
+    setvbuf(stdout, NULL, _IONBF, 0);
 #endif
 
     // Set up pins for the hard buttons
@@ -109,7 +111,6 @@ int main()
         DBG_PUT("Pico init failed");
         return -1;
     }
-
 
     auto neopixels = std::make_unique<NeoPixelBuffer>(DMA_CHANNEL, DMA_IRQ_0, pio0, 0, PIXEL_PIN, PIXEL_COUNT);
 
@@ -233,6 +234,66 @@ const WifiConfig *checkConfig(
     return wifiConfig;
 }
 
+void DoPublish(
+    const std::vector<std::string> &animationNames,
+    DeviceConfig *config,
+    MqttClient *mqttClient)
+{
+    if(!mqttClient->IsConnected())
+        return;
+
+    DBG_PUT("Discovery publish!"); 
+    auto mqttConfig = config->GetMqttConfig();
+    if(!*mqttConfig->topic)
+    {
+        DBG_PUT("Discovery topic not configured");
+        return;
+    }
+
+    // Get the MAC address to use as a unique ID
+
+    // Publish Home Assistant discovery information for the light
+
+    char buffer[2048];
+    BufferOutput payloadWriter(buffer, sizeof(buffer));
+
+    payloadWriter.Append("{ \"~\": \"miku/");
+    payloadWriter.Append(macAddress);
+    payloadWriter.Append("\", \"name\": \"Miku Light\"");
+    //payloadWriter.AppendEscaped(this->_name.c_str());
+    payloadWriter.Append(
+        ", \"avty_t\": \"~/status\", \"pl_avail\": \"online\", \"pl_not_avail\": \"offline\", "
+        "\"cmd_t\": \"~/sw/cmd\", \"stat_t\": \"~/sw/state\", "
+        "\"bri_scl\": 255, \"bri_cmd_t\": \"~/br/cmd\", \"bri_stat_t\": \"~/br/state\", "
+        "\"hs_cmd_t\": \"~/hs/cmd\", \"hs_stat_t\": \"~/hs/state\", "
+        "\"whit_cmd_t\": \"~/wh/cmd\", \"whit_scale\": 255, "
+        "\"fx_cmd_t\": \"~/fx/cmd\", \"fx_stat_t\": \"~/fx/state\", \"fx_list\": [");
+    for(size_t a = 0; a < animationNames.size(); a++)
+    {
+        if(a)
+            payloadWriter.Append(',');
+        payloadWriter.Append("\"");
+        payloadWriter.Append(animationNames[a]);
+        payloadWriter.Append("\"");
+    }
+    payloadWriter.Append(
+        "], \"uniq_id\": \"");
+    payloadWriter.Append(macAddress);
+    payloadWriter.Append("\", \"device\": { \"name\": \"Miku Picture Frame\", \"mdl\": \"Neopixel Animation Controller\", \"mf\": \"Bagpuss\", \"ids\": [\"neo_");
+    payloadWriter.Append(macAddress);
+    payloadWriter.Append("\"] } }");
+
+    char topic[64];
+    snprintf(topic, sizeof(topic), "%s/light/miku/%s/config", mqttConfig->topic, macAddress);
+    topic[63] = 0;
+    DBG_PRINT("Publishing %d bytes to %s\n", payloadWriter.BytesWritten(), topic);
+    if(!mqttClient->Publish(topic, (uint8_t *)buffer, payloadWriter.BytesWritten()))
+    {
+        DBG_PUT("Failed to publish discovery message");
+    }
+
+}
+
 void runServiceMode(
     std::shared_ptr<WebServer> webServer,
     std::shared_ptr<DeviceConfig> config,
@@ -240,35 +301,37 @@ void runServiceMode(
     std::shared_ptr<AnimationRunner> animationRunner,
     std::shared_ptr<ServiceControl> service)
 {
+    uint8_t mac[6] = {};
+    cyw43_wifi_get_mac(&cyw43_state, CYW43_ITF_STA, mac);
+    sprintf(macAddress, "%02x%02x%02x%02x%02x%02x", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+    DBG_PRINT("MAC Address: %s\n", macAddress);
 
-    auto mqttClient = std::make_shared<MqttClient>(config, wifiConnection, "miku/status", "online", "offline");
+    auto onlineTopic = string_format("miku/%s/status", macAddress);
+    auto mqttClient = std::make_shared<MqttClient>(config, wifiConnection, onlineTopic.c_str(), "online", "offline");
 
     mqttClient->Start();
 
-    animationRunner->SetAnimation(std::make_unique<SolidMikuAnimation>());
+    animationRunner->SetAnimation(std::make_unique<SolidMikuAnimation>(128));
 
     // Subscribe by wildcard to reduce overhead
-    //mqttClient->SubscribeTopic("miku/cmd");
+    auto cmdTopic = string_format("miku/%s/+/cmd", macAddress);
+    mqttClient->SubscribeTopic(cmdTopic.c_str());
     
     DBG_PUT("Starting the Service Status Controller...");
     ServiceStatus statusApi(webServer, mqttClient, false);
     DBG_PUT("Starting the Patterns List...");
     PatternList patterns(webServer, config, animationRunner);
     DBG_PUT("Starting the Animation Controller...");
-    AnimationController animationController(webServer, config, animationRunner);
+    AnimationController animationController(webServer, mqttClient, config, animationRunner);
+    DBG_PUT("Starting the Light Controller...");
+    LightController lightController(webServer, mqttClient, animationRunner);
 
-    //ScheduledTimer republishTimer([&blinds, &remotes] () {
-    //    // Try to republish discovery information for one device
-    //    // It should be safe to access the collections from this callback.
-    //    if(remotes->TryRepublish()||
-    //        blinds->TryRepublish())
-    //        // Do another later, if there is more work to be done
-    //        // We can't publish everything at once, as lwip needs a chance to run to clear the queues
-    //        return 100;
-    //
-    //    // Everything that needed to be published has been
-    //    return 0;
-    //}, 0);
+    ScheduledTimer republishTimer([&animationController, &config, &mqttClient] () {
+        // Try to republish discovery information for one device
+        // It should be safe to access the collections from this callback.
+        DoPublish(animationController.GetAvailableAnimations(), config.get(), mqttClient.get());
+        return 0;
+    }, 0);
 
     auto mqttConnected = false;
 
@@ -286,12 +349,12 @@ void runServiceMode(
             if(mqttClient->IsConnected())
             {
                 mqttConnected = true;
-                //republishTimer.ResetTimer(250);
+                republishTimer.ResetTimer(250);
             }
         }
         else if(!mqttClient->IsConnected())
         {
-            //republishTimer.ResetTimer(0);
+            republishTimer.ResetTimer(0);
             mqttConnected = false;
         }
 
@@ -316,13 +379,13 @@ void runServiceMode(
 
     }
 
-    //republishTimer.ResetTimer(0);
+    republishTimer.ResetTimer(0);
 
-    DBG_PUT("Waiting for the command queue to clear...");
+    DBG_PUT("Waiting for the animation to end...");
     animationRunner->Shutdown();
 
 
-    DBG_PUT("Saving any unsaved state.\n");
+    //DBG_PUT("Saving any unsaved state.\n");
     //remotes->SaveRemoteState();
     //blinds->SaveBlindState(true);
 

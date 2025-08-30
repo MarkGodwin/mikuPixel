@@ -1,5 +1,5 @@
+#include "mikuPixel.h"
 #include "MarqueeAnimation.h"
-#include "debug.h"
 #include <Miku.h>
 
 uint32_t MarqueeAnimation::DrawFrame(NeoPixelFrame frame, uint32_t frameCounter)

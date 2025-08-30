@@ -66,3 +66,19 @@ export async function activateAnimation(id: number): Promise<boolean> {
     }
     return await response.json();
 }
+
+export async function setRgb(red: number, green: number, blue: number): Promise<boolean> {
+    const response = await fetch(`/api/setRgb.json?r=${red.toString()}&g=${green.toString()}&b=${blue.toString()}`);
+    if (!response.ok) {
+        throw new Error("Failed to set RGB");
+    }
+    return await response.json();
+}
+
+export async function setBrightness(value: number): Promise<boolean> {
+    const response = await fetch(`/api/setBrightness.json?value=${value.toString()}`);
+    if (!response.ok) {
+        throw new Error("Failed to set brightness");
+    }
+    return await response.json();
+}

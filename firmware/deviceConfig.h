@@ -33,6 +33,24 @@ struct PatternConfig
     int32_t transitionTime;
 };
 
+enum LightState
+{
+    Off,
+    Colour,
+    Pattern,
+    Animation
+};
+
+struct CurrentState
+{
+    LightState state;
+    float hue;
+    float saturation;
+    float brightness;
+    int patternId;
+    int animationId;
+};
+
 
 bool operator==(const PatternConfig &left, const PatternConfig &right);
 
@@ -66,5 +84,5 @@ class DeviceConfig
         void SaveIdList32(uint32_t header, const uint32_t *ids, uint32_t count);
         const uint32_t *GetIdList32(uint32_t header, uint32_t *count);
 
-        BlockStorage _storage;        
+        BlockStorage _storage;
 };

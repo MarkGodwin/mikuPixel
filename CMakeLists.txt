@@ -8,7 +8,7 @@ include(pico-sdk/pico_sdk_init.cmake)
 
 #include(pico_extras_import_optional.cmake)
 
-project(mark_neopixel C CXX ASM)
+project(mikuPixel C CXX ASM)
 
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 20)

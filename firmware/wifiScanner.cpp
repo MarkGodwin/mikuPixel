@@ -1,12 +1,11 @@
-// Copyright (c) 2023 Mark Godwin.
+// Copyright (c) 2025 Mark Godwin.
 // SPDX-License-Identifier: MIT
 
-#include <stdio.h>
+#include "mikuPixel.h"
 #include "hardware/pio.h"
 #include "pico/cyw43_arch.h"
 #include "pico/flash.h"
 #include "wifiScanner.h"
-#include "debug.h"
 
 
 WifiScanner::WifiScanner(bool oneTimeScan)

@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Mark Godwin.
+// Copyright (c) 2025 Mark Godwin.
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -71,9 +71,9 @@ class MqttClient
         std::shared_ptr<DeviceConfig> _config;
         mqtt_client_t *_client;
 
-        const char *_statusTopic;
-        const char *_onlinePayload;
-        const char *_offlinePayload;
+        std::string _statusTopic;
+        std::string _onlinePayload;
+        std::string _offlinePayload;
 
         std::set<std::string> _subscribedTopics;
         std::map<std::string, SubscribeFunc> _topicCallbacks;
@@ -106,7 +106,7 @@ class MqttSubscription
              _topic(std::move(topic)),
              _subscribed(doSubscribe)
         {
-            _client->AddTopicCallback(_topic.c_str(), std::forward<SubscribeFunc>(callback));
+            _client->AddTopicCallback(_topic.c_str(), std::move(callback));
             // Normally, we expect the topic would have been subscribed by wildcard
             if(_subscribed)
                 client->SubscribeTopic(topic.c_str());
@@ -125,6 +125,7 @@ class MqttSubscription
         {
             if(_client)
             {
+                DBG_PRINT("Removing MQTT subscription for %s\n", _topic.c_str());
                 if(_subscribed)
                     _client->UnsubscribeTopic(_topic.c_str());
                 _client->RemoveTopicCallback(_topic.c_str());

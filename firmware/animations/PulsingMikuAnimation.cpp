@@ -1,6 +1,6 @@
 
+#include "mikuPixel.h"
 #include "PulsingMikuAnimation.h"
-#include "debug.h"
 #include "NeoPixelBuffer.h"
 
 PulsingMikuAnimation::PulsingMikuAnimation()

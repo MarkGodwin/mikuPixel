@@ -1,9 +1,8 @@
-// Copyright (c) 2023 Mark Godwin.
+// Copyright (c) 2025 Mark Godwin.
 // SPDX-License-Identifier: MIT
 
 #pragma once
 
-#include "debug.h"
 #include "dhcpserver/dhcpserver.h"
 #include "dnsserver/dnsserver.h"
 #include <memory>

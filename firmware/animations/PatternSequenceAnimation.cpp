@@ -1,5 +1,5 @@
+#include "mikuPixel.h"
 #include "PatternSequenceAnimation.h"
-#include "debug.h"
 #include <algorithm>
 
 PatternSequenceAnimation::PatternSequenceAnimation(uint16_t startPatternId, std::shared_ptr<DeviceConfig> deviceConfig)

@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 
 import { PixelPosition, RgbPixel } from './Pattern';
-import { RgbColor, RgbColorPicker } from 'react-colorful';
 
 type PatternEditorProps = {
     isEditing: boolean,
@@ -23,7 +22,7 @@ const PatternEditor : React.FC<PatternEditorProps> = ({isEditing, pixels, onPixe
         });
 
     const [image, setImage] = useState(new Image());
-    const [drawingColour, setDrawingColour] = useState<RgbColor>({ r: 255, g: 255, b: 255});
+    const [drawingColour, setDrawingColour] = useState<RgbPixel>({ r: 255, g: 255, b: 255});
     const [cursorPos, setCursor] = useState({x: -1, y: -1});
     const [isDrawing, setIsDrawing] = useState(false);
 
@@ -113,7 +112,23 @@ const PatternEditor : React.FC<PatternEditorProps> = ({isEditing, pixels, onPixe
     return (
         <div id="PatternEditor">
             <canvas ref={canvasRef} width={675} height={650} onMouseMove={drawCursor} onMouseLeave={hideCursor} onMouseDown={() => setIsDrawing(true)} onMouseUp={ () => setIsDrawing(false)}></canvas>
-            {isEditing && <RgbColorPicker color={drawingColour} onChange={setDrawingColour}></RgbColorPicker>}
+            {isEditing && <div>
+                <span>Drawing Color: </span>
+                <input 
+                    type="color" 
+                    value={`#${drawingColour.r.toString(16).padStart(2, '0')}${drawingColour.g.toString(16).padStart(2, '0')}${drawingColour.b.toString(16).padStart(2, '0')}`}
+                    onChange={(e) => {
+                        const hex = e.target.value.substring(1); // Remove the #
+                        setDrawingColour({
+                            r: parseInt(hex.slice(0, 2), 16),
+                            g: parseInt(hex.slice(2, 4), 16),
+                            b: parseInt(hex.slice(4, 6), 16)
+                        });
+                    }}
+                    style={{ margin: '1rem 0' }}
+                />
+            </div>
+            }
         </div>)
 }
 

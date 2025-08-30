@@ -1,5 +1,5 @@
 
-#include "debug.h"
+#include "mikuPixel.h"
 #include "PatternList.h"
 #include "PatternEditor.h"
 #include "deviceConfig.h"

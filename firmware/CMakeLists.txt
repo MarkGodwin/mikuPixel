@@ -6,8 +6,8 @@ pico_sdk_init()
 
 # Add executable. Default name is the project name, version 0.1
 
-add_executable(mark_neopixel
-  mark_neopixel.cpp
+add_executable(mikuPixel
+  mikuPixel.cpp
   NeoPixelBuffer.cpp
   Miku.cpp
   configService.cpp
@@ -22,6 +22,7 @@ add_executable(mark_neopixel
   webServer.cpp
   blockStorage.cpp
   AnimationController.cpp
+  LightController.cpp
   AnimationRunner.cpp
   PatternEditor.cpp
   PatternList.cpp
@@ -34,17 +35,17 @@ add_executable(mark_neopixel
   animations/WelcomeAnimation.cpp
   )
 
-pico_set_program_name(mark_neopixel "mark_neopixel")
-pico_set_program_version(mark_neopixel "0.1")
+pico_set_program_name(mikuPixel "mikuPixel")
+pico_set_program_version(mikuPixel "0.1")
 
-pico_enable_stdio_uart(mark_neopixel 0)
-pico_enable_stdio_usb(mark_neopixel 1)
+pico_enable_stdio_uart(mikuPixel 0)
+pico_enable_stdio_usb(mikuPixel 1)
 
-pico_generate_pio_header(mark_neopixel ${CMAKE_CURRENT_LIST_DIR}/neopixel.pio)
+pico_generate_pio_header(mikuPixel ${CMAKE_CURRENT_LIST_DIR}/neopixel.pio)
 
 # Add the standard library to the build
 target_link_libraries(
-  mark_neopixel
+  mikuPixel
   
   pico_stdlib
   hardware_pwm
@@ -58,10 +59,10 @@ target_link_libraries(
   )
 
 # Add the standard include files to the build
-target_include_directories(mark_neopixel PRIVATE
+target_include_directories(mikuPixel PRIVATE
   ${CMAKE_CURRENT_LIST_DIR}
   ${CMAKE_CURRENT_LIST_DIR}/.. # for our common lwipopts or any other standard includes, if required
 )
 
-pico_add_extra_outputs(mark_neopixel)
+pico_add_extra_outputs(mikuPixel)
 

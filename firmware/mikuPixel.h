@@ -14,3 +14,5 @@
 #define DBG_PRINT_NA(fmt) printf(fmt)
 #define DBG_PUT(str) puts(str)
 #endif
+
+extern char macAddress[13];

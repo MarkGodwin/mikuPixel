@@ -1,5 +1,5 @@
+#include "mikuPixel.h"
 #include "TrainAnimation.h"
-#include "debug.h"
 #include <algorithm>
 
 TrainPosition::TrainPosition(int startTrack, int maxLength, neopixel colour, TrackOccupancyTracker *occupancyTracker)
@@ -29,7 +29,7 @@ void TrainPosition::Drive()
             if(_stuckCount > 60)
             {
                 // Reverse the train
-                DBG_PRINT("Reversing train at track %d pos %d dir %d\n", _headTrack, _headPosition, _headDirection);
+                //DBG_PRINT("Reversing train at track %d pos %d dir %d\n", _headTrack, _headPosition, _headDirection);
                 std::swap(_headTrack, _tailTrack);
                 std::swap(_headPosition, _tailPosition);
                 std::swap(_headDirection, _tailDirection);

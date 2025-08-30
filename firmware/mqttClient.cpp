@@ -1,9 +1,9 @@
-// Copyright (c) 2023 Mark Godwin.
+// Copyright (c) 2025 Mark Godwin.
 // SPDX-License-Identifier: MIT
 
+#include "mikuPixel.h"
 #include "pico/cyw43_arch.h"
 #include "pico/flash.h"
-#include "debug.h"
 #include "mqttClient.h"
 #include "deviceConfig.h"
 #include "iwifiConnection.h"
@@ -56,9 +56,9 @@ void MqttClient::DoConnect()
         ci.client_user = mqttConfig->username;
     if(mqttConfig->password[0])
         ci.client_pass = mqttConfig->password;
-    ci.will_msg = _offlinePayload;
+    ci.will_msg = _offlinePayload.c_str();
     ci.will_retain = true;
-    ci.will_topic = _statusTopic;
+    ci.will_topic = _statusTopic.c_str();
     ci.keep_alive = 40;
 
     ip_addr_t brokerAddress;
@@ -120,17 +120,24 @@ void MqttClient::UnsubscribeTopic(const char *topic)
 
 void MqttClient::AddTopicCallback(const char *topic, SubscribeFunc &&callback)
 {
+    DBG_PRINT("Adding MQTT topic callback for %s\n", topic);
     if(!_client)
+    {
+        DBG_PUT("No client!\n");
         return;
+    }
     _topicCallbacks.insert({topic, callback});
+    DBG_PUT("Topic added\n");
 }
 
 
 void MqttClient::RemoveTopicCallback(const char *topic)
 {
+    DBG_PRINT("Removing MQTT topic callback for %s\n", topic);
     if(!_client)
         return;
     _topicCallbacks.erase(topic);
+    DBG_PUT("Topic removed\n");
 }
 
 bool MqttClient::Publish(const char *topic, const uint8_t *payload, uint32_t length, bool retain)
@@ -153,7 +160,7 @@ void MqttClient::ConnectionCallback(mqtt_connection_status_t status)
     {
         case MQTT_CONNECT_ACCEPTED:
             DBG_PUT("Mqtt client is connected");
-            Publish(_statusTopic, (const uint8_t *)_onlinePayload, strlen(_onlinePayload));
+            Publish(_statusTopic.c_str(), (const uint8_t *)_onlinePayload.c_str(), _onlinePayload.length());
             DoSubscribe();
             // Cheat: The main loop will do a republish of anything that needs it
             return;

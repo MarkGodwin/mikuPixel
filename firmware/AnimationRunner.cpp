@@ -1,9 +1,9 @@
 
+#include "mikuPixel.h"
 #include "AnimationRunner.h"
 #include "pico/stdlib.h"
 #include "pico/multicore.h"
 #include "pico/flash.h"
-#include "debug.h"
 
 class SpinLock
 {

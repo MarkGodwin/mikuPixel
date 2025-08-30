@@ -1,6 +1,7 @@
-// Copyright (c) 2023 Mark Godwin.
+// Copyright (c) 2025 Mark Godwin.
 // SPDX-License-Identifier: MIT
 
+#include "mikuPixel.h"
 #include <pico/cyw43_arch.h>
 #include "pico/flash.h"
 #include "lwip/apps/httpd.h"
@@ -10,7 +11,6 @@
 #include "webServer.h"
 #include "deviceConfig.h"
 #include "serviceControl.h"
-#include "debug.h"
 
 
 // HTTPD callbacks aren't conducive to multiple instances

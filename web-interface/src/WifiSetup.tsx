@@ -27,7 +27,7 @@ export function WifiSetup() : JSX.Element {
       if(!cancelled)
       {
         setSsids(response.availableSsids);
-        if(loadCount == 0) {
+        if(loadCount === 0) {
             setLoading(false);
             setWifiSsid(response.currentSsid);
             if(response.currentSsid === "")

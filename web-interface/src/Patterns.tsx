@@ -97,7 +97,7 @@ export function PatternsPage(): JSX.Element {
                 </ListGroup>
                 <PatternLinks 
                     patterns={patterns}
-                    itemHeight={40} // Standard Bootstrap ListGroup.Item height
+                    itemHeight={47} // Standard Bootstrap ListGroup.Item height
                     rightOffset={0} // Distance from right edge to start arrows
                 />
             </div>

@@ -32,7 +32,7 @@
 #include <string.h>
 #include <errno.h>
 
-#include "debug.h"
+#include "mikuPixel.h"
 #include "cyw43_config.h"
 #include "dhcpserver.h"
 #include "lwip/udp.h"

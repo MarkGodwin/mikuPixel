@@ -1,5 +1,4 @@
 import { MouseEvent, useEffect, useState } from 'react';
-import { matchPath } from 'react-router-dom';
 import { useToaster } from './toaster';
 import { Spinner } from './Spinner';
 
