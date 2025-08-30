@@ -36,12 +36,13 @@ struct PatternConfig
 enum LightState
 {
     Off,
+    Miku,
     Colour,
     Pattern,
     Animation
 };
 
-struct CurrentState
+struct LightConfig
 {
     LightState state;
     float hue;
@@ -64,6 +65,9 @@ class DeviceConfig
 
         const MqttConfig *GetMqttConfig();
         void SaveMqttConfig(const MqttConfig *mqttConfig);
+
+        const LightConfig *GetLightConfig();
+        void SaveLightConfig(const LightConfig *lightConfig);
 
         /// @brief Get the IDs of all the registered patterns
         /// @param count [out] number of patterns registered

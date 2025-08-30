@@ -26,8 +26,8 @@
 #include "wifiScanner.h"
 #include "mqttClient.h"
 #include "PatternList.h"
-#include "AnimationController.h"
 #include "animations/SolidMikuAnimation.h"
+#include "MikuLight.h"
 #include "LightController.h"
 
 
@@ -235,7 +235,7 @@ const WifiConfig *checkConfig(
 }
 
 void DoPublish(
-    const std::vector<std::string> &animationNames,
+    MikuLight *mikuLight,
     DeviceConfig *config,
     MqttClient *mqttClient)
 {
@@ -260,7 +260,6 @@ void DoPublish(
     payloadWriter.Append("{ \"~\": \"miku/");
     payloadWriter.Append(macAddress);
     payloadWriter.Append("\", \"name\": \"Miku Light\"");
-    //payloadWriter.AppendEscaped(this->_name.c_str());
     payloadWriter.Append(
         ", \"avty_t\": \"~/status\", \"pl_avail\": \"online\", \"pl_not_avail\": \"offline\", "
         "\"cmd_t\": \"~/sw/cmd\", \"stat_t\": \"~/sw/state\", "
@@ -268,12 +267,13 @@ void DoPublish(
         "\"hs_cmd_t\": \"~/hs/cmd\", \"hs_stat_t\": \"~/hs/state\", "
         "\"whit_cmd_t\": \"~/wh/cmd\", \"whit_scale\": 255, "
         "\"fx_cmd_t\": \"~/fx/cmd\", \"fx_stat_t\": \"~/fx/state\", \"fx_list\": [");
+    const auto &animationNames = mikuLight->GetAvailableAnimations();
     for(size_t a = 0; a < animationNames.size(); a++)
     {
         if(a)
             payloadWriter.Append(',');
         payloadWriter.Append("\"");
-        payloadWriter.Append(animationNames[a]);
+        payloadWriter.Append(std::get<0>(animationNames[a]));
         payloadWriter.Append("\"");
     }
     payloadWriter.Append(
@@ -311,7 +311,9 @@ void runServiceMode(
 
     mqttClient->Start();
 
-    animationRunner->SetAnimation(std::make_unique<SolidMikuAnimation>(128));
+    auto mikuLight = std::make_shared<MikuLight>(config, animationRunner, mqttClient);
+
+    mikuLight->LoadConfig();
 
     // Subscribe by wildcard to reduce overhead
     auto cmdTopic = string_format("miku/%s/+/cmd", macAddress);
@@ -321,15 +323,14 @@ void runServiceMode(
     ServiceStatus statusApi(webServer, mqttClient, false);
     DBG_PUT("Starting the Patterns List...");
     PatternList patterns(webServer, config, animationRunner);
-    DBG_PUT("Starting the Animation Controller...");
-    AnimationController animationController(webServer, mqttClient, config, animationRunner);
-    DBG_PUT("Starting the Light Controller...");
-    LightController lightController(webServer, mqttClient, animationRunner);
 
-    ScheduledTimer republishTimer([&animationController, &config, &mqttClient] () {
+    DBG_PUT("Starting the Light Controller...");
+    LightController lightController(mikuLight, webServer, mqttClient);
+
+    ScheduledTimer republishTimer([&mikuLight, &config, &mqttClient] () {
         // Try to republish discovery information for one device
         // It should be safe to access the collections from this callback.
-        DoPublish(animationController.GetAvailableAnimations(), config.get(), mqttClient.get());
+        DoPublish(mikuLight.get(), config.get(), mqttClient.get());
         return 0;
     }, 0);
 

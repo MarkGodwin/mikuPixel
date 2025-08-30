@@ -1,24 +1,25 @@
 #include "mikuPixel.h"
+#include <algorithm>
 #include "LightController.h"
 
-#include "animations/SolidMikuAnimation.h"
-#include "animations/SolidColourAnimation.h"
-#include <algorithm>
+#include "MikuLight.h"
 
 LightController::LightController(
+    std::shared_ptr<MikuLight> mikuLight,
     std::shared_ptr<WebServer> webServer,
-    std::shared_ptr<MqttClient> mqttClient,
-    std::shared_ptr<AnimationRunner> animationRunner)
-    : _webServer(std::move(webServer)),
-    _mqttClient(std::move(mqttClient)),
-    _animationRunner(std::move(animationRunner))
+    std::shared_ptr<MqttClient> mqttClient)
+    : _mikuLight(std::move(mikuLight)),
+    _webServer(std::move(webServer)),
+    _mqttClient(std::move(mqttClient))
 {
 
     // Set up web endpoints
     _cgiHandlers.push_back(MakeCgiSubscription<bool>(_webServer, "/api/setRgb.json", [this](const CgiParams &params) { return OnSetRgbCgi(params); }));
     _cgiHandlers.push_back(MakeCgiSubscription<bool>(_webServer, "/api/setBrightness.json", [this](const CgiParams &params) { return OnSetBrightnessCgi(params); }));
+    _cgiHandlers.push_back(MakeCgiSubscription<bool>(_webServer, "/api/activatePattern.json", [this](const CgiParams &params) { return ActivatePatternCgi(params); }));
+    _cgiHandlers.push_back(MakeCgiSubscription<bool>(_webServer, "/api/activateAnimation.json", [this](const CgiParams &params) { return ActivateAnimationCgi(params); }));
 
-    //_ssiHandlers.push_back(SsiSubscription(_webServer, "anims", [this](char *pcInsert, int iInsertLen, uint16_t tagPart, uint16_t *nextPart) { return HandleAnimationsResponse(pcInsert, iInsertLen, tagPart, nextPart); }));
+    _ssiHandlers.push_back(SsiSubscription(_webServer, "anims", [this](char *pcInsert, int iInsertLen, uint16_t tagPart, uint16_t *nextPart) { return HandleAnimationsResponse(pcInsert, iInsertLen, tagPart, nextPart); }));
 
     DBG_PUT("Registering Light MQTT handlers 1\n");
 
@@ -38,6 +39,10 @@ LightController::LightController(
                 {
                     OnWhiteCommand(payload, length);
                 }));
+    _mqttHandlers.push_back(MqttSubscription(_mqttClient, string_format("miku/%s/fx/cmd", macAddress), [this](const uint8_t *payload, uint32_t length)
+                 { OnEffectCommand(payload, length); })
+    );
+
 }
 
 bool LightController::OnSetRgbCgi(const CgiParams &params)
@@ -51,41 +56,12 @@ bool LightController::OnSetRgbCgi(const CgiParams &params)
         auto r = std::stoi(rParam->second);
         auto g = std::stoi(gParam->second);
         auto b = std::stoi(bParam->second);
-        SetRgb(r, g, b);
+        _mikuLight->SetRgb(r, g, b);
         return true;
     }
     return false;
 }
 
-void LightController::SetRgb(int r, int g, int b)
-{
-    r = std::clamp(r, 0, 255);
-    g = std::clamp(g, 0, 255);
-    b = std::clamp(b, 0, 255);
-    _animationRunner->SetAnimation(std::make_shared<SolidColourAnimation>(neopixel(r, g, b).gammaCorrected()));
-
-    auto [h, s, br] = RGBtoHSB(r, g, b);
-
-    auto hs = string_format("%.1f,%.1f", h, s);
-    _hue = std::round(h * 10.0f) / 10.0f;
-    _saturation = std::round(s * 10.0f) / 10.0f;
-    _brightness = br;
-    auto brval = std::to_string(br);
-    _mqttClient->Publish(string_format("miku/%s/hs/state", macAddress).c_str(), (const uint8_t *)hs.data(), hs.length(), true);
-    _mqttClient->Publish(string_format("miku/%s/br/state", macAddress).c_str(), (const uint8_t *)brval.data(), brval.length(), true);
-    _mqttClient->Publish(string_format("miku/%s/fx/state", macAddress).c_str(), (const uint8_t *)"solid", 5, true);
-
-    if(r > 0 || g > 0 || b > 0)
-    {
-        _on = true;
-        _mqttClient->Publish(string_format("miku/%s/sw/state", macAddress).c_str(), (const uint8_t *)"ON", 2, true);
-    }
-    else
-    {
-        _on = false;
-        _mqttClient->Publish(string_format("miku/%s/sw/state", macAddress).c_str(), (const uint8_t *)"OFF", 3, true);
-    }
-}
 
 bool LightController::OnSetBrightnessCgi(const CgiParams &params)
 {
@@ -96,35 +72,40 @@ bool LightController::OnSetBrightnessCgi(const CgiParams &params)
     int brightness = std::stoi(brightnessParam->second);
 
     // Set a solid colour animation with the specified brightness
-    SetPatternBrightness(brightness);
+    _mikuLight->SetMikuBrightness(brightness);
     return true;
 }
 
-void LightController::SetPatternBrightness(int brightness)
+bool LightController::ActivatePatternCgi(const CgiParams &params)
 {
-    brightness = std::clamp(brightness, 0, 255);
-    _animationRunner->SetAnimation(std::make_shared<SolidMikuAnimation>(brightness));
+    auto patternId = params.find("id");
+    if(patternId == params.end())
+        return false;
 
-    if(brightness > 0)
-    {
-        _brightness = brightness;
-        auto br = std::to_string(brightness);
-        auto hs = string_format("%.0f,0", _hue);
-        _saturation = 0.0f;
-        _mqttClient->Publish(string_format("miku/%s/br/state", macAddress).c_str(), (const uint8_t *)br.data(), br.length(), true);
-        _mqttClient->Publish(string_format("miku/%s/hs/state", macAddress).c_str(), (const uint8_t *)hs.data(), hs.length(), true);
-        _mqttClient->Publish(string_format("miku/%s/fx/state", macAddress).c_str(), (const uint8_t *)"solid", 5, true);
+    uint16_t id = std::stoul(patternId->second);
+    return _mikuLight->ActivatePattern(id);
 
-        _on = true;
-        _mqttClient->Publish(string_format("miku/%s/sw/state", macAddress).c_str(), (const uint8_t *)"ON", 2, true);
-    }
+}
+
+bool LightController::ActivateAnimationCgi(const CgiParams &params)
+{
+    auto animationId = 0;
+    auto animationIdParam = params.find("id");
+    if(animationIdParam != params.end())
+        animationId = std::stoi(animationIdParam->second);
     else
     {
-        _on = false;
-        _mqttClient->Publish(string_format("miku/%s/fx/state", macAddress).c_str(), nullptr, 0, true);
-        _mqttClient->Publish(string_format("miku/%s/sw/state", macAddress).c_str(), (const uint8_t *)"OFF", 3, true);
+        auto animationName = params.find("name");
+        if(animationName == params.end())
+            return false;
+
+        const auto &name = animationName->second;
+        animationId = _mikuLight->GetAnimationByName(name);
+        if(animationId < 0)
+            return false;
     }
 
+    return _mikuLight->StartAnimation(animationId);
 }
 
 void LightController::OnSwitchCommand(const uint8_t *payload, uint32_t length)
@@ -133,23 +114,12 @@ void LightController::OnSwitchCommand(const uint8_t *payload, uint32_t length)
     if(!memcmp(payload, "ON", 2) != 0)
     {
         DBG_PUT("Received ON command\n");
-        if(!_on)
-        {
-            // Restore the previous colour
-            if(_saturation == 0.0f)
-                SetPatternBrightness(_brightness);
-            else
-            {
-                auto [r, g, b] = HSBtoRGB(_hue, _saturation, _brightness);
-                SetRgb(r, g, b);
-            }
-        }
-
+        _mikuLight->SwitchOn();
     }
     else if(!memcmp(payload, "OFF", 3) != 0)
     {
         DBG_PUT("Received OFF command\n");
-        SetPatternBrightness(0);
+        _mikuLight->SwitchOff();
     }
     else
     {
@@ -165,15 +135,7 @@ void LightController::OnBrightnessCommand(const uint8_t *payload, uint32_t lengt
     DBG_PRINT("Received Brightness command: %s\n", value.c_str());
     int brightness = std::stoi(value);
 
-    if(_saturation == 0.0f)
-    {
-        SetPatternBrightness(brightness);
-    }
-    else
-    {
-        auto [r, g, b] = HSBtoRGB(_hue, _saturation, brightness);
-        SetRgb(r, g, b);
-    }
+    _mikuLight->SetBrightness(brightness);
 }
 
 // Part of an HSB command set. General brightness is set through white command
@@ -181,33 +143,25 @@ void LightController::OnHsCommand(const uint8_t *payload, uint32_t length)
 {
     // Expecting a non-terminated string payload like "255,0,127"
     std::string rgbStr((const char *)payload, length);
-    DBG_PRINT("Received RGB command: %s\n", rgbStr.c_str());
+    DBG_PRINT("Received HS command: %s\n", rgbStr.c_str());
     auto parts = std::count(rgbStr.begin(), rgbStr.end(), ',');
     if(parts != 1)
     {
-        DBG_PRINT("Invalid RGB command (wrong number of commas): %s\n", rgbStr.c_str());
+        DBG_PRINT("Invalid HS command (wrong number of commas): %s\n", rgbStr.c_str());
         return;
     }
 
     auto firstComma = rgbStr.find(',');
     if(firstComma == std::string::npos)
     {
-        DBG_PRINT("Invalid RGB command (missing commas): %s\n", rgbStr.c_str());
+        DBG_PRINT("Invalid HS command (missing commas): %s\n", rgbStr.c_str());
         return;
     }
 
     float hue = std::clamp(std::stof(rgbStr.substr(0, firstComma)), 0.0f, 360.0f);
     float sat = std::clamp(std::stof(rgbStr.substr(firstComma + 1)), 0.0f, 100.0f);
 
-    if(sat == 0.0f)
-    {
-        SetPatternBrightness(_brightness);
-    }
-    else
-    {
-        auto [r, g, b] = HSBtoRGB(hue, sat, _brightness);
-        SetRgb(r, g, b);
-    }
+    _mikuLight->SetHueAndSaturation(hue, sat);
 }
 
 // Revert the light to "white" (pattern mode)
@@ -218,56 +172,54 @@ void LightController::OnWhiteCommand(const uint8_t *payload, uint32_t length)
     DBG_PRINT("Received White command: %s\n", value.c_str());
     int brightness = std::stoi(value);
 
-    SetPatternBrightness(brightness);
+    _mikuLight->SetMikuBrightness(brightness);
+}
+
+void LightController::OnEffectCommand(const uint8_t *payload, uint32_t length)
+{
+    // Expecting a string payload like "solid"
+    std::string effectName;
+    effectName.resize(length);
+    memcpy(effectName.data(), payload, length);
+
+    auto animationId = _mikuLight->GetAnimationByName(effectName);
+    if(animationId >= 0)
+        _mikuLight->StartAnimation(animationId);
 }
 
 
-// HA messages work better with HSB, as RGB is treated like a hue scaled to full brightness
-std::tuple<int,int,int> LightController::HSBtoRGB(float hue, float sat, int brightness)
+int16_t LightController::HandleAnimationsResponse(char *pcInsert, int iInsertLen, uint16_t tagPart, uint16_t *nextPart)
 {
-    float s = std::clamp(sat / 100.0f, 0.0f, 1.0f);
-    float v = std::clamp(brightness / 255.0f, 0.0f, 1.0f);
+    const auto &animations = _mikuLight->GetAvailableAnimations();
 
-    float C = v * s;                           // chroma
-    float X = C * (1 - fabsf(fmodf(hue / 60.0f, 2.0f) - 1));
-    float m = v - C;
-
-    float r=0, g=0, b=0;
-    if(hue < 60)      { r = C; g = X; b = 0; }
-    else if(hue < 120){ r = X; g = C; b = 0; }
-    else if(hue < 180){ r = 0; g = C; b = X; }
-    else if(hue < 240){ r = 0; g = X; b = C; }
-    else if(hue < 300){ r = X; g = 0; b = C; }
-    else            { r = C; g = 0; b = X; }
-
-    int R = static_cast<int>(std::round((r + m) * 255));
-    int G = static_cast<int>(std::round((g + m) * 255));
-    int B_out = static_cast<int>(std::round((b + m) * 255));
-
-    return {R, G, B_out};
-}
-
-// Convert RGB -> HSB
-inline std::tuple<float,float,int> LightController::RGBtoHSB(int red, int green, int blue)
-{
-    float r = red / 255.0f;
-    float g = green / 255.0f;
-    float b = blue / 255.0f;
-
-    float maxC = std::max({r,g,b});
-    float minC = std::min({r,g,b});
-    float delta = maxC - minC;
-
-    float hue = 0.0f;
-    if(delta != 0.0f) {
-        if(maxC == r)      hue = 60.0f * fmodf(((g - b) / delta), 6.0f);
-        else if(maxC == g) hue = 60.0f * (((b - r) / delta) + 2.0f);
-        else if(maxC == b) hue = 60.0f * (((r - g) / delta) + 4.0f);
+    if(tagPart == 0)
+    {
+        DBG_PRINT("Returning %d patterns\n", animations.size());
     }
-    if(hue < 0) hue += 360.0f;
 
-    float sat = (maxC == 0 ? 0 : delta / maxC);
-    float brightness = maxC;
+    if(tagPart >= animations.size())
+    {
+        return 0; // No more patterns
+    }
 
-    return {hue, sat * 100.0f, static_cast<int>(std::round(brightness * 255))};
+    const auto &[shortName, animationName] = animations[tagPart];
+
+    BufferOutput outputter(pcInsert, iInsertLen);
+    outputter.Append("{ \"id\": ");
+    outputter.Append((int)tagPart);
+    outputter.Append(", \"name\": \"");
+    outputter.AppendEscaped(animationName.c_str());
+    outputter.Append("\" ");
+
+    if(tagPart + 1 < animations.size())
+    {
+        outputter.Append(" },");
+        *nextPart = tagPart + 1;
+    }
+    else
+        outputter.Append(" }");
+    
+    return outputter.BytesWritten();
 }
+
+

@@ -9,7 +9,7 @@ pico_sdk_init()
 add_executable(mikuPixel
   mikuPixel.cpp
   NeoPixelBuffer.cpp
-  Miku.cpp
+  ColourUtils.cpp
   configService.cpp
   deviceConfig.cpp
   dhcpserver/dhcpserver.c
@@ -21,8 +21,9 @@ add_executable(mikuPixel
   wifiScanner.cpp
   webServer.cpp
   blockStorage.cpp
-  AnimationController.cpp
   LightController.cpp
+  Miku.cpp
+  MikuLight.cpp
   AnimationRunner.cpp
   PatternEditor.cpp
   PatternList.cpp

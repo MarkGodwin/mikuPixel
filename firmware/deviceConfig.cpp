@@ -13,6 +13,7 @@
 
 static const uint32_t wifiConfigMagic = 0x19841984;
 static const uint32_t mqttConfigMagic = 0x19841985;
+static const uint32_t lightConfigMagic = 0x19841977;
 static const uint32_t patternsConfigMagic = 0xDEADBEEF;
 static const uint32_t patternConfigMagic = 0xBEEF0000;
 
@@ -41,6 +42,25 @@ const MqttConfig *DeviceConfig::GetMqttConfig()
 void DeviceConfig::SaveMqttConfig(const MqttConfig *mqttConfig)
 {
     _storage.SaveBlock(mqttConfigMagic, (const uint8_t *)mqttConfig, sizeof(MqttConfig));
+}
+
+const LightConfig *DeviceConfig::GetLightConfig()
+{
+    auto lightCfg = (const LightConfig *)_storage.GetBlock(lightConfigMagic);
+    return lightCfg;
+}
+
+void DeviceConfig::SaveLightConfig(const LightConfig *lightConfig)
+{
+    auto existingConfig = GetLightConfig();
+    if(existingConfig != nullptr && !::memcmp(existingConfig, lightConfig, sizeof(LightConfig)))
+    {
+        // Avoid flash wear
+        DBG_PUT("No changes to save");
+        return;
+    }
+
+    _storage.SaveBlock(lightConfigMagic, (const uint8_t *)lightConfig, sizeof(LightConfig));
 }
 
 void DeviceConfig::SavePatternIds(const uint16_t *blindIds, uint32_t count)

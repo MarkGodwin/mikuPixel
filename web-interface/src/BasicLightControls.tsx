@@ -29,10 +29,8 @@ export function BasicLightControls() {
             } catch (error) {
                 toaster.open('Error', 'Failed to update color. Check device connection.');
             }
-        });
-        },
-        [toaster]
-    );
+        }, 300);
+    }, [toaster]);
 
     // Stable API update functions
     // Update handlers
@@ -49,7 +47,7 @@ export function BasicLightControls() {
             } catch (error) {
                 toaster.open('Error', 'Failed to update brightness. Check device connection.');
             }
-        });
+        }, 300);
     }, [toaster]);
 
     return (
@@ -65,7 +63,7 @@ export function BasicLightControls() {
                             value={brightness}
                             onChange={(e) => handleBrightnessChange(parseInt(e.target.value, 10))}
                             min={0}
-                            max={100}
+                            max={255}
                         />
                         <div className="text-muted text-end">{brightness}%</div>
                     </Form.Group>
