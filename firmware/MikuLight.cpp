@@ -102,6 +102,7 @@ void MikuLight::SetRgb(int r, int g, int b)
     _lightConfig.hue = std::round(h * 10.0f) / 10.0f;
     _lightConfig.saturation = std::round(s * 10.0f) / 10.0f;
     _lightConfig.brightness = br;
+    _lightConfig.animationId = 0;
     auto brval = std::to_string(br);
 
     if(r > 0 || g > 0 || b > 0)
@@ -128,6 +129,8 @@ bool MikuLight::ActivatePattern(int patternId)
     _animationRunner->SetAnimation(std::make_shared<PatternSequenceAnimation>(patternId, _deviceConfig));
     _lightConfig.state = LightState::Pattern;
     _lightConfig.patternId = patternId;
+    _lightConfig.animationId = 0;
+
     
     TriggerStateChanged();
     return true;
@@ -142,6 +145,7 @@ void MikuLight::SetMikuBrightness(int brightness)
     {
         _lightConfig.brightness = brightness;
         _lightConfig.saturation = 0.0f;
+        _lightConfig.animationId = 0;
 
         _lightConfig.state = LightState::Miku;
     }
@@ -160,6 +164,10 @@ bool MikuLight::StartAnimation(int animationId)
         DBG_PRINT("Unknown animation ID: %d", animationId);
         return false;
     }
+
+    if(_lightConfig.animationId == animationId)
+        // Ignore requests to re-set the same current animation (usually "Solid" from HA)
+        return true;
     
     auto &[_sn, _dn, factory] = _animationFactories[animationId];
     _animationRunner->SetAnimation(std::move(factory()));
@@ -191,6 +199,8 @@ void MikuLight::SetHueAndSaturation(float hue, float saturation)
 {
     if(saturation == 0.0f)
     {
+        _lightConfig.hue = hue;
+        _lightConfig.saturation = saturation;
         SetMikuBrightness(_lightConfig.brightness);
     }
     else
@@ -204,8 +214,10 @@ bool MikuLight::SwitchOn()
 {
     if(_lightConfig.state == LightState::Off)
     {
-        // Restore the previous colour
-        if(_lightConfig.saturation == 0.0f)
+        // Restore the previous colour/animation
+        if(_lightConfig.animationId > 0)
+            StartAnimation(_lightConfig.animationId);
+        else if(_lightConfig.saturation == 0.0f)
             SetMikuBrightness(_lightConfig.brightness);
         else
         {
@@ -252,7 +264,7 @@ uint32_t MikuLight::PublishMqttState()
 
         case LightState::Colour:
         {
-            auto br = std::to_string(_lightConfig.brightness);
+            auto br = string_format("%.0f", _lightConfig.brightness);
             auto hs = string_format("%.1f,%.1f", _lightConfig.hue, _lightConfig.saturation);
             _mqttClient->Publish(string_format("miku/%s/br/state", macAddress).c_str(), (const uint8_t *)br.data(), br.length(), true);
             _mqttClient->Publish(string_format("miku/%s/hs/state", macAddress).c_str(), (const uint8_t *)hs.data(), hs.length(), true);
@@ -262,7 +274,7 @@ uint32_t MikuLight::PublishMqttState()
         }
         case LightState::Miku:
         {
-            auto br = std::to_string(_lightConfig.brightness);
+            auto br = string_format("%.0f", _lightConfig.brightness);
             auto hs = string_format("%.1f,0", _lightConfig.hue);
             _mqttClient->Publish(string_format("miku/%s/br/state", macAddress).c_str(), (const uint8_t *)br.data(), br.length(), true);
             _mqttClient->Publish(string_format("miku/%s/hs/state", macAddress).c_str(), (const uint8_t *)hs.data(), hs.length(), true);
@@ -273,6 +285,7 @@ uint32_t MikuLight::PublishMqttState()
         case LightState::Animation:
         {
             auto anim = std::get<0>(_animationNames[_lightConfig.animationId]);
+            _mqttClient->Publish(string_format("miku/%s/sw/state", macAddress).c_str(), (const uint8_t *)"ON", 2, true);
             _mqttClient->Publish(string_format("miku/%s/fx/state", macAddress).c_str(), (const uint8_t *)anim.c_str(), anim.length(), true);
             break;
         }
